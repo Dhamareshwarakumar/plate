@@ -1,7 +1,7 @@
 import { healthResponseSchema } from '@plate/shared';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Clock, FolderCog, LogOut, Moon, Sun, SunMoon } from 'lucide-react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,16 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { Segmented } from '@/components/ui/segmented';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLogout } from '@/features/auth/use-session';
+import { activeGoalFor, useGoals } from '@/features/goals/api';
+import { GoalCard } from '@/features/goals/GoalCard';
+import { GoalEditorSheet } from '@/features/goals/GoalEditorSheet';
 import { apiRequest } from '@/lib/api';
+import { todayKey } from '@/lib/dates';
 import { useTheme, type ThemePreference } from '@/lib/theme';
+import { AdherenceCard } from './AdherenceCard';
 import { ChangePasswordForm } from './ChangePasswordForm';
+import { ProfileCard } from './ProfileCard';
+import { WeekStartCard } from './WeekStartCard';
 
 const THEME_OPTIONS = [
   { value: 'system', label: 'System', icon: <SunMoon className="size-4" aria-hidden="true" /> },
@@ -20,15 +27,39 @@ const THEME_OPTIONS = [
 ] as const satisfies readonly { value: ThemePreference; label: string; icon: React.ReactNode }[];
 
 export function MorePage() {
+  // The goal editor is URL state (`?goal=edit`) so Today's "Set a goal" and the first-run checklist
+  // can deep-link into it and Back closes it (D63 pattern).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editorOpen = searchParams.get('goal') === 'edit';
+  const openEditor = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set('goal', 'edit');
+    setSearchParams(next);
+  };
+  const closeEditor = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('goal');
+    setSearchParams(next, { replace: true });
+  };
+  const goals = useGoals();
+  // Prefill from the goal in effect today, else the newest one; a brand-new goal otherwise. The
+  // sheet waits for the list so the form mounts with the right defaults.
+  const prefill = activeGoalFor(goals.data, todayKey()) ?? goals.data?.[0] ?? null;
+
   return (
     <>
-      <PageHeader title="More" description="Appearance, security and app details." />
+      <PageHeader title="More" description="Goal, preferences, security and app details." />
       <div className="grid gap-4 lg:grid-cols-2">
+        <GoalCard onEdit={openEditor} className="lg:col-span-2" />
+        <AdherenceCard />
+        <WeekStartCard />
+        <ProfileCard />
         <AppearanceCard />
         <LibraryCard />
         <SecurityCard />
         <AboutCard />
       </div>
+      <GoalEditorSheet open={editorOpen && !goals.isPending} onClose={closeEditor} goal={prefill} />
     </>
   );
 }

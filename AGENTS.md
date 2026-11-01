@@ -83,13 +83,16 @@ sizes sm/md/lg/icon/icon-sm, `loading`), `Input`, `PasswordInput`, `NumberField`
 `Select` (native), `Field` (label + description/error render-prop wiring), `Segmented`, `Chip`, `Tag`,
 `Card`/`CardTitle`/`CardDescription`, `Sheet` (bottom sheet on phones, dialog on ≥sm; `title`,
 `description`, `footer`, `locked`), `ConfirmDialog`, `Menu`/`MenuItem`/`MenuSeparator`, `Skeleton`,
-`Spinner`, `EmptyState`, `ErrorState`. Also `PageHeader`, `PlaceholderPage` (remove usages as phases
-land), `BrandMark`. Add new primitives there when a pattern repeats; keep them accessible (Radix
-underneath, keyboard operable, aria labels).
+`Spinner`, `EmptyState`, `ErrorState`, `Ring` (SVG progress ring, `status` colours, `role="progressbar"`),
+`Bar` (slim macro bar with hatched overflow), `Slider` (Radix, single value, `onValueCommit`). Also
+`PageHeader`, `PlaceholderPage` (remove usages as phases land), `BrandMark`. Add new primitives there
+when a pattern repeats; keep them accessible (Radix underneath, keyboard operable, aria labels).
 
 **Design tokens** (globals.css, Tailwind 4): colours `bg surface surface-2 surface-3 border
 border-strong fg fg-muted fg-faint accent accent-hover accent-soft accent-fg ring overlay`, fixed
-`protein carbs fat fiber water on-target under over danger success`; radii `rounded-card`
+`protein carbs fat fiber water on-target under over danger success`, theme-aware text variants of the
+status colours `on-target-fg under-fg over-fg` (use these for small text, the fixed ones for graphics);
+radii `rounded-card`
 `rounded-control`; utilities `tabular`, `gutter`/`gutter-lg` (page side padding incl. safe area),
 `pb-safe`/`pt-safe`, `scrollbar-none`, animation utilities for sheets/dialogs/menus. Dark mode is the
 `.dark` class on `<html>`. Phone-first: 44 px targets, actions in the bottom third, FAB where

@@ -18,3 +18,11 @@ node tools/shots/phase2-diary.mjs      # Today: empty day, log flow, entries, ed
 
 `phase2-diary.mjs` seeds a small library through the API when needed and clears today's and yesterday's
 entries first so the shots are deterministic. Run it against a dev database you do not mind touching.
+
+```sh
+node tools/shots/phase3-goals.mjs      # Today ring under/on/over target, log sheet with goal, goal editor + calculator, More goal card, first-run checklist, desktop
+```
+
+`phase3-goals.mjs` resets settings (tolerance 10 %, Monday), replaces all goals with one effective a
+week ago (2,000 kcal), clears today's entries and logs food to reach each status in turn. It saves a
+goal and the profile through the editor, so it writes a profile into the dev database.

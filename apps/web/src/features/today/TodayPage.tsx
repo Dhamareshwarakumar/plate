@@ -26,6 +26,7 @@ import { CopySheet, type CopyRequest } from './CopySheet';
 import { DayHeader } from './DayHeader';
 import { DayStrip } from './DayStrip';
 import { EntryEditSheet } from './EntryEditSheet';
+import { FirstRunChecklist } from './FirstRunChecklist';
 import { LogSheet } from './LogSheet';
 import { MealSection } from './MealSection';
 import { MiniCalendar } from './MiniCalendar';
@@ -163,12 +164,12 @@ function TodayView({ day }: { day: string }) {
 
         <aside className="mt-3 flex flex-col gap-4 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-8 lg:mt-8">
           <MiniCalendar day={day} onNavigate={goTo} className="hidden lg:block" />
+          <FirstRunChecklist day={data} onLog={() => openLog()} />
           {dayQuery.isPending ? (
             <SummaryCardSkeleton />
           ) : data ? (
             <SummaryCard
-              totals={data.totals}
-              entryCount={data.entryCount}
+              day={data}
               className={cn(dayQuery.isPlaceholderData && 'opacity-60 transition-opacity')}
             />
           ) : null}
@@ -277,6 +278,7 @@ function TodayView({ day }: { day: string }) {
         day={day}
         slots={activeSlots}
         dayKcal={data?.totals.kcal ?? 0}
+        goalKcal={data?.goal?.kcal}
         initialSlotId={slotParam ? Number(slotParam) : undefined}
         initialFoodId={logFoodId}
         onCreateFood={(name) =>

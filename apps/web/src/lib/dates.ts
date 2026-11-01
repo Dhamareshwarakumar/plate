@@ -1,3 +1,4 @@
+import type { WeekStart } from '@plate/shared';
 import {
   addDays,
   addMonths,
@@ -14,10 +15,22 @@ import {
 
 /**
  * Day keys are `YYYY-MM-DD` in the device's own time zone (TECH.md §3): the phone decides which
- * day a meal belongs to, never the server. Weeks start on Monday (D39).
+ * day a meal belongs to, never the server. Weeks start on Monday unless the week-start setting
+ * says Sunday (FR-S2, D74).
  */
 export const DAY_KEY_FORMAT = 'yyyy-MM-dd';
-const WEEK = { weekStartsOn: 1 } as const;
+
+/** date-fns convention: 0 = Sunday, 1 = Monday. */
+export type WeekStartsOn = 0 | 1;
+
+export function weekStartsOnFor(weekStart: WeekStart): WeekStartsOn {
+  return weekStart === 'sunday' ? 0 : 1;
+}
+
+/** Rotates Monday-first weekday labels so the first one matches the week start. */
+export function weekdayLabels<T>(weekStartsOn: WeekStartsOn, mondayFirst: readonly T[]): T[] {
+  return weekStartsOn === 0 ? [mondayFirst[6]!, ...mondayFirst.slice(0, 6)] : [...mondayFirst];
+}
 
 export function toDayKey(date: Date): string {
   return format(date, DAY_KEY_FORMAT);
@@ -65,17 +78,17 @@ export function formatMonthLong(day: string): string {
   return format(parseDayKey(day), 'MMMM yyyy');
 }
 
-/** The seven day keys (Monday first) of the week containing `day`. */
-export function weekDays(day: string): string[] {
-  const start = startOfWeek(parseDayKey(day), WEEK);
+/** The seven day keys of the week containing `day`, starting on the given weekday. */
+export function weekDays(day: string, weekStartsOn: WeekStartsOn = 1): string[] {
+  const start = startOfWeek(parseDayKey(day), { weekStartsOn });
   return Array.from({ length: 7 }, (_, i) => toDayKey(addDays(start, i)));
 }
 
-/** Monday-start weeks covering the month of `day`; cells outside the month are included. */
-export function monthGrid(day: string): string[][] {
+/** Full weeks covering the month of `day`; cells outside the month are included. */
+export function monthGrid(day: string, weekStartsOn: WeekStartsOn = 1): string[][] {
   const date = parseDayKey(day);
-  const start = startOfWeek(startOfMonth(date), WEEK);
-  const end = endOfWeek(endOfMonth(date), WEEK);
+  const start = startOfWeek(startOfMonth(date), { weekStartsOn });
+  const end = endOfWeek(endOfMonth(date), { weekStartsOn });
   const days = eachDayOfInterval({ start, end }).map(toDayKey);
   const weeks: string[][] = [];
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));

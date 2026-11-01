@@ -1,4 +1,5 @@
 import {
+  computeDayStatus,
   copyResultSchema,
   dayTotals,
   diaryDaySchema,
@@ -6,9 +7,11 @@ import {
   diaryEntrySchema,
   entryTotals,
   foodUsageSchema,
+  goalRemaining,
   mealSlotSchema,
   okResponseSchema,
   sumNutrients,
+  DEFAULT_SETTINGS,
   type CopyDayInput,
   type CopyResult,
   type DiaryDay,
@@ -23,6 +26,7 @@ import {
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { cachedTolerance } from '@/features/settings/api';
 import { apiRequest, ApiClientError } from '@/lib/api';
 
 export const diaryKeys = {
@@ -107,16 +111,21 @@ export interface AddEntryVariables {
   snapshot: EntrySnapshot;
 }
 
-function recompute(day: DiaryDay, slots: DiaryDay['slots']): DiaryDay {
+/** Re-derives totals, count, status and remaining after the slots changed (optimistic updates). */
+function recompute(
+  day: DiaryDay,
+  slots: DiaryDay['slots'],
+  tolerancePct = DEFAULT_SETTINGS.tolerancePct,
+): DiaryDay {
   const entryCount = slots.reduce((n, s) => n + s.entries.length, 0);
-  const status =
-    entryCount === 0 ? 'not_logged' : day.status === 'not_logged' ? 'no_goal' : day.status;
+  const totals = sumNutrients(slots.map((s) => s.totals));
   return {
     ...day,
     slots,
-    totals: sumNutrients(slots.map((s) => s.totals)),
+    totals,
     entryCount,
-    status,
+    status: computeDayStatus(totals.kcal, day.goal?.kcal ?? null, entryCount, tolerancePct),
+    remaining: day.goal ? goalRemaining(day.goal, totals) : null,
   };
 }
 
@@ -126,6 +135,7 @@ const byTime = (a: DiaryEntry, b: DiaryEntry) =>
 function withEntries(
   day: DiaryDay,
   update: (slotId: number, entries: DiaryEntry[]) => DiaryEntry[],
+  tolerancePct?: number,
 ): DiaryDay {
   return recompute(
     day,
@@ -133,23 +143,31 @@ function withEntries(
       const entries = update(s.slot.id, s.entries).sort(byTime);
       return { ...s, entries, totals: dayTotals(entries) };
     }),
+    tolerancePct,
   );
 }
 
-export function insertEntry(day: DiaryDay, entry: DiaryEntry): DiaryDay {
+export function insertEntry(day: DiaryDay, entry: DiaryEntry, tolerancePct?: number): DiaryDay {
   if (!day.slots.some((s) => s.slot.id === entry.slotId)) return day;
-  return withEntries(day, (slotId, entries) =>
-    slotId === entry.slotId ? [...entries, entry] : entries,
+  return withEntries(
+    day,
+    (slotId, entries) => (slotId === entry.slotId ? [...entries, entry] : entries),
+    tolerancePct,
   );
 }
 
-export function removeEntry(day: DiaryDay, id: number): DiaryDay {
-  return withEntries(day, (_slotId, entries) => entries.filter((e) => e.id !== id));
+export function removeEntry(day: DiaryDay, id: number, tolerancePct?: number): DiaryDay {
+  return withEntries(day, (_slotId, entries) => entries.filter((e) => e.id !== id), tolerancePct);
 }
 
-export function replaceEntry(day: DiaryDay, id: number, next: DiaryEntry): DiaryDay {
-  const stripped = removeEntry(day, id);
-  return next.day === day.day ? insertEntry(stripped, next) : stripped;
+export function replaceEntry(
+  day: DiaryDay,
+  id: number,
+  next: DiaryEntry,
+  tolerancePct?: number,
+): DiaryDay {
+  const stripped = removeEntry(day, id, tolerancePct);
+  return next.day === day.day ? insertEntry(stripped, next, tolerancePct) : stripped;
 }
 
 function optimisticEntry(
@@ -215,7 +233,11 @@ export function useAddEntry() {
         const now = new Date().toISOString();
         queryClient.setQueryData(
           key,
-          insertEntry(previous, optimisticEntry(variables, tempId, now)),
+          insertEntry(
+            previous,
+            optimisticEntry(variables, tempId, now),
+            cachedTolerance(queryClient),
+          ),
         );
       }
       return { previous, tempId, key };
@@ -226,7 +248,9 @@ export function useAddEntry() {
     },
     onSuccess: (entry, _variables, context) => {
       queryClient.setQueryData<DiaryDay>(context.key, (current) =>
-        current ? replaceEntry(current, context.tempId, entry) : current,
+        current
+          ? replaceEntry(current, context.tempId, entry, cachedTolerance(queryClient))
+          : current,
       );
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: diaryKeys.all }),
@@ -264,7 +288,10 @@ export function usePatchEntry() {
           portionLabel: patch.portionLabel === undefined ? entry.portionLabel : patch.portionLabel,
           portionCount: patch.portionCount === undefined ? entry.portionCount : patch.portionCount,
         };
-        queryClient.setQueryData(key, replaceEntry(previous, entry.id, guess));
+        queryClient.setQueryData(
+          key,
+          replaceEntry(previous, entry.id, guess, cachedTolerance(queryClient)),
+        );
       }
       return { previous, key };
     },
@@ -274,7 +301,7 @@ export function usePatchEntry() {
     },
     onSuccess: (updated, { entry }, context) => {
       queryClient.setQueryData<DiaryDay>(context.key, (current) =>
-        current ? replaceEntry(current, entry.id, updated) : current,
+        current ? replaceEntry(current, entry.id, updated, cachedTolerance(queryClient)) : current,
       );
       if (updated.day !== entry.day) {
         void queryClient.invalidateQueries({ queryKey: diaryKeys.day(updated.day) });
@@ -293,7 +320,12 @@ export function useDeleteEntry() {
       const key = diaryKeys.day(entry.day);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<DiaryDay>(key);
-      if (previous) queryClient.setQueryData(key, removeEntry(previous, entry.id));
+      if (previous) {
+        queryClient.setQueryData(
+          key,
+          removeEntry(previous, entry.id, cachedTolerance(queryClient)),
+        );
+      }
       return { previous, key };
     },
     onError: (err, _entry, context) => {
@@ -319,7 +351,10 @@ export function useDuplicateEntry() {
       const previous = queryClient.getQueryData<DiaryDay>(key);
       const tempId = -Date.now();
       if (previous) {
-        queryClient.setQueryData(key, insertEntry(previous, { ...entry, id: tempId, loggedAt }));
+        queryClient.setQueryData(
+          key,
+          insertEntry(previous, { ...entry, id: tempId, loggedAt }, cachedTolerance(queryClient)),
+        );
       }
       return { previous, key, tempId };
     },
@@ -329,7 +364,9 @@ export function useDuplicateEntry() {
     },
     onSuccess: (created, _variables, context) => {
       queryClient.setQueryData<DiaryDay>(context.key, (current) =>
-        current ? replaceEntry(current, context.tempId, created) : current,
+        current
+          ? replaceEntry(current, context.tempId, created, cachedTolerance(queryClient))
+          : current,
       );
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: diaryKeys.all }),

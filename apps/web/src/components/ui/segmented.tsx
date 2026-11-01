@@ -25,10 +25,11 @@ export function Segmented<T extends string>({
   ...aria
 }: SegmentedProps<T>) {
   const layoutId = useId();
+  const selectedIndex = options.findIndex((o) => o.value === value);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const index = options.findIndex((o) => o.value === value);
-    if (index === -1) return;
+    // With nothing selected yet (an empty form choice) arrows start from the first option.
+    const index = selectedIndex === -1 ? 0 : selectedIndex;
     let next: number | undefined;
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown')
       next = (index + 1) % options.length;
@@ -52,7 +53,7 @@ export function Segmented<T extends string>({
         className,
       )}
     >
-      {options.map((option) => {
+      {options.map((option, i) => {
         const selected = option.value === value;
         return (
           <button
@@ -60,7 +61,7 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={selected || (selectedIndex === -1 && i === 0) ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
               'relative z-10 flex h-9 items-center justify-center gap-1.5 rounded-[0.5rem] px-3 text-sm font-medium transition-colors',

@@ -25,6 +25,8 @@ export interface QuantityStepProps {
   initialSlotId: number;
   /** Current day total, for the "Day after" line. */
   dayKcal: number;
+  /** The day's kcal goal; shown after the "Day after" figure when set. */
+  goalKcal?: number | undefined;
   onSubmit: (values: QuantityFormValues) => void;
 }
 
@@ -61,6 +63,7 @@ export function QuantityStep({
   slots,
   initialSlotId,
   dayKcal,
+  goalKcal,
   onSubmit,
 }: QuantityStepProps) {
   const form = useForm<QuantityFormValues>({
@@ -136,7 +139,10 @@ export function QuantityStep({
           Day after:{' '}
           <span className="text-fg tabular font-medium">
             {formatKcal(dayKcal + (preview?.kcal ?? 0))}
-          </span>{' '}
+          </span>
+          {goalKcal !== undefined ? (
+            <span className="tabular"> / {formatKcal(goalKcal)}</span>
+          ) : null}{' '}
           kcal
         </p>
       </div>

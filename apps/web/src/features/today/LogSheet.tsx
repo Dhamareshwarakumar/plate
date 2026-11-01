@@ -38,6 +38,8 @@ export interface LogSheetProps {
   /** Active meal slots in order. */
   slots: MealSlot[];
   dayKcal: number;
+  /** The day's kcal goal, for the "Day after: x / goal" line; omitted when there is no goal. */
+  goalKcal?: number | undefined;
   /** Preselects the meal (launched from "Add to <meal>"). */
   initialSlotId?: number | undefined;
   /** Opens straight at the quantity step for this food (`?log=<id>` after creating it). */
@@ -74,6 +76,7 @@ function LogSheetInner({
   day,
   slots,
   dayKcal,
+  goalKcal,
   initialSlotId,
   initialFoodId,
   onCreateFood,
@@ -390,6 +393,7 @@ function LogSheetInner({
           slots={activeSlots}
           initialSlotId={effectiveSlotId}
           dayKcal={dayKcal}
+          goalKcal={goalKcal}
           onSubmit={(values) => submitQuantity(current.food, values)}
         />
       ) : (
@@ -400,6 +404,7 @@ function LogSheetInner({
           initialSlotId={effectiveSlotId}
           initialName={current.name}
           dayKcal={dayKcal}
+          goalKcal={goalKcal}
           onSubmit={(values) => void submitAdHoc(values)}
         />
       )}

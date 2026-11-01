@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useSettings } from '@/features/settings/api';
 import { cn } from '@/lib/cn';
 import {
   formatDayLabel,
@@ -10,6 +11,8 @@ import {
   parseDayKey,
   shiftMonth,
   todayKey,
+  weekdayLabels,
+  weekStartsOnFor,
 } from '@/lib/dates';
 import { useDiaryDays } from './api';
 
@@ -21,7 +24,10 @@ interface MiniCalendarProps {
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-/** Desktop month grid with dots on logged days. Remounts (via `key`) when the selected month changes. */
+/**
+ * Desktop month grid with dots on logged days, starting the week on the configured weekday.
+ * Remounts (via `key`) when the selected month changes.
+ */
 export function MiniCalendar({ day, onNavigate, className }: MiniCalendarProps) {
   return (
     <MiniCalendarInner
@@ -35,9 +41,12 @@ export function MiniCalendar({ day, onNavigate, className }: MiniCalendarProps) 
 
 function MiniCalendarInner({ day, onNavigate, className }: MiniCalendarProps) {
   const [monthOffset, setMonthOffset] = useState(0);
+  const settings = useSettings();
+  const weekStartsOn = weekStartsOnFor(settings.data?.weekStart ?? 'monday');
   const viewDay = monthOffset === 0 ? day : shiftMonth(day, monthOffset);
   const { start, end } = monthBounds(viewDay);
-  const grid = monthGrid(viewDay);
+  const grid = monthGrid(viewDay, weekStartsOn);
+  const letters = weekdayLabels(weekStartsOn, WEEKDAY_LETTERS);
   const summaries = useDiaryDays(grid[0]![0]!, grid[grid.length - 1]![6]!);
   const logged = new Set((summaries.data ?? []).map((d) => d.day));
   const today = todayKey();
@@ -67,7 +76,7 @@ function MiniCalendarInner({ day, onNavigate, className }: MiniCalendarProps) {
         </Button>
       </div>
       <div className="mt-2 grid grid-cols-7 gap-y-1 text-center">
-        {WEEKDAY_LETTERS.map((letter, i) => (
+        {letters.map((letter, i) => (
           <span key={i} className="text-fg-faint text-[0.6875rem] font-medium" aria-hidden="true">
             {letter}
           </span>

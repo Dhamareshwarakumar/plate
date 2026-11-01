@@ -21,6 +21,10 @@
   --ring: rgb(249 115 22 / 0.45);
   --shadow-card: 0 1px 2px rgb(9 9 11 / 0.04), 0 8px 24px -12px rgb(9 9 11 / 0.12);
   --overlay: rgb(9 9 11 / 0.4);
+  /* Status colours as small text need more contrast than the fixed graphic hues give on white. */
+  --on-target-fg: #15803d;
+  --under-fg: #b45309;
+  --over-fg: #b91c1c;
   color-scheme: light;
 }
 
@@ -41,6 +45,9 @@
   --ring: rgb(251 146 60 / 0.5);
   --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.04);
   --overlay: rgb(0 0 0 / 0.6);
+  --on-target-fg: #4ade80;
+  --under-fg: #fbbf24;
+  --over-fg: #f87171;
   color-scheme: dark;
 }
 
@@ -75,6 +82,10 @@
   --color-over: #ef4444;
   --color-danger: #ef4444;
   --color-success: #22c55e;
+  /* Theme-aware text variants of the status colours (AA on both surfaces). */
+  --color-on-target-fg: var(--on-target-fg);
+  --color-under-fg: var(--under-fg);
+  --color-over-fg: var(--over-fg);
 
   --radius-card: 1rem;
   --radius-control: 0.75rem;

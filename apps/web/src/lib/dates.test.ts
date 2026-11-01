@@ -9,7 +9,9 @@ import {
   shiftDay,
   shiftMonth,
   timeOfIso,
+  weekdayLabels,
   weekDays,
+  weekStartsOnFor,
 } from './dates';
 
 describe('day arithmetic', () => {
@@ -44,6 +46,33 @@ describe('grids', () => {
       '2025-10-19',
     ]);
     expect(weekDays('2025-10-13')[0]).toBe('2025-10-13');
+  });
+
+  it('honours a Sunday week start', () => {
+    expect(weekStartsOnFor('monday')).toBe(1);
+    expect(weekStartsOnFor('sunday')).toBe(0);
+    expect(weekDays('2025-10-19', 0)[0]).toBe('2025-10-19');
+    expect(weekDays('2025-10-18', 0)[0]).toBe('2025-10-12');
+    expect(weekDays('2025-10-18', 0)[6]).toBe('2025-10-18');
+    expect(monthGrid('2025-10-19', 0)[0]![0]).toBe('2025-09-28');
+    expect(weekdayLabels(1, ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'])).toEqual([
+      'Mo',
+      'Tu',
+      'We',
+      'Th',
+      'Fr',
+      'Sa',
+      'Su',
+    ]);
+    expect(weekdayLabels(0, ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'])).toEqual([
+      'Su',
+      'Mo',
+      'Tu',
+      'We',
+      'Th',
+      'Fr',
+      'Sa',
+    ]);
   });
 
   it('covers the month with full weeks', () => {

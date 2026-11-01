@@ -1,7 +1,16 @@
 import { motion } from 'motion/react';
 import { useState } from 'react';
+import { useSettings } from '@/features/settings/api';
 import { cn } from '@/lib/cn';
-import { formatDayLabel, parseDayKey, shiftDay, todayKey, weekDays } from '@/lib/dates';
+import {
+  formatDayLabel,
+  parseDayKey,
+  shiftDay,
+  todayKey,
+  weekdayLabels,
+  weekDays,
+  weekStartsOnFor,
+} from '@/lib/dates';
 import { useDiaryDays } from './api';
 
 interface DayStripProps {
@@ -13,11 +22,15 @@ const WEEKDAY_LETTERS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 const SWIPE_THRESHOLD = 48;
 
 /**
- * The Monday-start week around the selected day. A dot marks days with entries. Swiping the strip
- * moves a whole week; tapping a day selects it.
+ * The week around the selected day, starting on the configured weekday (Monday until the settings
+ * load). A dot marks days with entries. Swiping the strip moves a whole week; tapping a day selects
+ * it.
  */
 export function DayStrip({ day, onNavigate }: DayStripProps) {
-  const days = weekDays(day);
+  const settings = useSettings();
+  const weekStartsOn = weekStartsOnFor(settings.data?.weekStart ?? 'monday');
+  const days = weekDays(day, weekStartsOn);
+  const letters = weekdayLabels(weekStartsOn, WEEKDAY_LETTERS);
   const first = days[0]!;
   const last = days[6]!;
   const summaries = useDiaryDays(first, last);
@@ -71,7 +84,7 @@ export function DayStrip({ day, onNavigate }: DayStripProps) {
                     selected ? 'text-accent-fg/80' : 'text-fg-faint',
                   )}
                 >
-                  {WEEKDAY_LETTERS[i]}
+                  {letters[i]}
                 </span>
                 <span
                   className={cn(

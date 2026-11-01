@@ -23,6 +23,8 @@ export interface AdHocStepProps {
   initialSlotId: number;
   initialName?: string;
   dayKcal: number;
+  /** The day's kcal goal; shown after the "Day after" figure when set. */
+  goalKcal?: number | undefined;
   onSubmit: (values: AdHocFormValues) => void;
 }
 
@@ -39,6 +41,7 @@ export function AdHocStep({
   initialSlotId,
   initialName = '',
   dayKcal,
+  goalKcal,
   onSubmit,
 }: AdHocStepProps) {
   const form = useForm<AdHocFormValues>({
@@ -225,7 +228,10 @@ export function AdHocStep({
           Day after:{' '}
           <span className="text-fg tabular font-medium">
             {formatKcal(dayKcal + (hasKcal ? totalKcal : 0))}
-          </span>{' '}
+          </span>
+          {goalKcal !== undefined ? (
+            <span className="tabular"> / {formatKcal(goalKcal)}</span>
+          ) : null}{' '}
           kcal
         </p>
       </div>
