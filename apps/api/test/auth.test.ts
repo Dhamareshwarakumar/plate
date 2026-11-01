@@ -175,7 +175,7 @@ describe('authentication gate', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('rate-limits repeated login failures', async () => {
+  it('blocks login after five wrong passwords, even with the right one', async () => {
     for (let i = 0; i < 5; i++) {
       const res = await ctx.app.inject({
         method: 'POST',
@@ -191,6 +191,42 @@ describe('authentication gate', () => {
     });
     expect(sixth.statusCode).toBe(429);
     expect(sixth.json().error.code).toBe('RATE_LIMITED');
+    expect(Number(sixth.headers['retry-after'])).toBeGreaterThan(0);
+  });
+
+  it('never counts successful logins, so many devices can sign in back to back', async () => {
+    for (let i = 0; i < 8; i++) {
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { password: TEST_PASSWORD },
+      });
+      expect(res.statusCode).toBe(200);
+    }
+  });
+
+  it('a successful login clears earlier failures', async () => {
+    for (let i = 0; i < 4; i++) {
+      await ctx.app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { password: 'wrong' },
+      });
+    }
+    const ok = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { password: TEST_PASSWORD },
+    });
+    expect(ok.statusCode).toBe(200);
+    for (let i = 0; i < 4; i++) {
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { password: 'wrong' },
+      });
+      expect(res.statusCode).toBe(401);
+    }
   });
 });
 

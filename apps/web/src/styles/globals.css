@@ -1,0 +1,155 @@
+@import 'tailwindcss';
+
+/* Dark mode is driven by a class on <html>, set before first paint (index.html) and by the ThemeProvider. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Runtime palette: flips with the theme. */
+:root {
+  --bg: #f6f6f7;
+  --surface: #ffffff;
+  --surface-2: #efeff1;
+  --surface-3: #e4e4e7;
+  --border: rgb(9 9 11 / 0.08);
+  --border-strong: rgb(9 9 11 / 0.16);
+  --fg: #18181b;
+  --fg-muted: #6b6b76;
+  --fg-faint: #9a9aa6;
+  --accent: #f97316;
+  --accent-hover: #ea580c;
+  --accent-soft: rgb(249 115 22 / 0.12);
+  --accent-fg: #ffffff;
+  --ring: rgb(249 115 22 / 0.45);
+  --shadow-card: 0 1px 2px rgb(9 9 11 / 0.04), 0 8px 24px -12px rgb(9 9 11 / 0.12);
+  --overlay: rgb(9 9 11 / 0.4);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0b0b0f;
+  --surface: #14141a;
+  --surface-2: #1c1c23;
+  --surface-3: #26262e;
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.16);
+  --fg: #f4f4f5;
+  --fg-muted: #a1a1aa;
+  --fg-faint: #6b6b76;
+  --accent: #fb923c;
+  --accent-hover: #f97316;
+  --accent-soft: rgb(251 146 60 / 0.16);
+  --accent-fg: #1a0b00;
+  --ring: rgb(251 146 60 / 0.5);
+  --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.04);
+  --overlay: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+
+  /* Fixed semantic colours: identical in both themes so charts and bars stay recognisable. */
+  --color-protein: #3b82f6;
+  --color-carbs: #f59e0b;
+  --color-fat: #ec4899;
+  --color-fiber: #10b981;
+  --color-water: #06b6d4;
+  --color-on-target: #22c55e;
+  --color-under: #f59e0b;
+  --color-over: #ef4444;
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+
+  --shadow-card: var(--shadow-card);
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-bg text-fg font-sans antialiased;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  #root {
+    min-height: 100dvh;
+  }
+
+  button,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Page gutter that grows with the device's safe area (notch, rounded corners). */
+@utility gutter {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+@utility gutter-lg {
+  padding-left: max(2rem, env(safe-area-inset-left));
+  padding-right: max(2rem, env(safe-area-inset-right));
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

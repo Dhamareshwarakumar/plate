@@ -65,6 +65,12 @@ export default tseslint.config(
     },
   },
   {
+    // Context providers export a hook next to the provider, and UI primitives export their
+    // variant helpers; both are deliberate patterns, not accidental Fast Refresh breakage.
+    files: ['apps/web/src/lib/**/*.tsx', 'apps/web/src/components/ui/**/*.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
     files: ['**/*.config.{js,ts}', '**/*.config.*.{js,ts}'],
     ...tseslint.configs.disableTypeChecked,
   },

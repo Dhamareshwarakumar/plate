@@ -9,10 +9,11 @@ import { join, resolve } from 'node:path';
 import authPlugin from './auth/plugin.js';
 import { AuthService } from './auth/service.js';
 import { SessionStore } from './auth/sessions.js';
+import { FailureThrottle } from './auth/throttle.js';
 import type { AppConfig } from './config.js';
 import type { Db } from './db/index.js';
 import { errorBody, errorHandler } from './errors.js';
-import { protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
+import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
 
 export interface BuildAppOptions {
@@ -75,14 +76,19 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const authService = new AuthService(db, sessionStore);
   await app.register(authPlugin, { config, authService, sessionStore });
 
+  const passwordThrottle = new FailureThrottle(
+    PASSWORD_THROTTLE.maxFailures,
+    PASSWORD_THROTTLE.windowMs,
+  );
+
   await app.register(
     async (api) => {
       await api.register(healthRoutes, { sqlite });
-      await api.register(publicAuthRoutes);
+      await api.register(publicAuthRoutes, { throttle: passwordThrottle });
 
       await api.register(async (guarded) => {
         guarded.addHook('preHandler', guarded.requireSession);
-        await guarded.register(protectedAuthRoutes);
+        await guarded.register(protectedAuthRoutes, { throttle: passwordThrottle });
       });
     },
     { prefix: '/api' },
