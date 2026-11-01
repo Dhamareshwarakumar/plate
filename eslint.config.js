@@ -14,6 +14,7 @@ export default tseslint.config(
       '**/coverage/**',
       'apps/api/drizzle/**',
       'apps/web/dev-dist/**',
+      'docker/**',
     ],
   },
   js.configs.recommended,

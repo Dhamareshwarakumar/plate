@@ -38,7 +38,7 @@ const api = (
 async function createFood(overrides: Record<string, unknown> = {}): Promise<Food> {
   const res = await api('POST', '/api/foods', { name: 'Banana', per100, ...overrides });
   expect(res.statusCode, res.body).toBe(201);
-  return res.json() as Food;
+  return res.json<Food>();
 }
 
 describe('auth gate on library routes', () => {
@@ -60,7 +60,7 @@ describe('auth gate on library routes', () => {
 describe('categories', () => {
   it('seeds defaults once and lists them in order', async () => {
     const res = await api('GET', '/api/categories');
-    const list = res.json() as Category[];
+    const list = res.json<Category[]>();
     expect(list.map((c) => c.name)).toEqual([
       'Fruit',
       'Vegetable',
@@ -81,26 +81,26 @@ describe('categories', () => {
   it('creates, renames, reorders, archives and deletes', async () => {
     const created = await api('POST', '/api/categories', { name: '  Supplements ' });
     expect(created.statusCode).toBe(201);
-    const cat = created.json() as Category;
+    const cat = created.json<Category>();
     expect(cat.name).toBe('Supplements');
 
     const dup = await api('POST', '/api/categories', { name: 'supplements' });
     expect(dup.statusCode).toBe(409);
 
     const renamed = await api('PATCH', `/api/categories/${cat.id}`, { name: 'Supps' });
-    expect((renamed.json() as Category).name).toBe('Supps');
+    expect(renamed.json<Category>().name).toBe('Supps');
 
     const reordered = await api('PUT', '/api/categories/order', { ids: [cat.id] });
     expect(reordered.statusCode).toBe(200);
-    const order = reordered.json() as Category[];
+    const order = reordered.json<Category[]>();
     expect(order[0]?.id).toBe(cat.id);
     expect(order[1]?.name).toBe('Fruit');
 
     const archived = await api('POST', `/api/categories/${cat.id}/archive`);
-    expect((archived.json() as Category).archivedAt).not.toBeNull();
-    const visible = (await api('GET', '/api/categories')).json() as Category[];
+    expect(archived.json<Category>().archivedAt).not.toBeNull();
+    const visible = (await api('GET', '/api/categories')).json<Category[]>();
     expect(visible.some((c) => c.id === cat.id)).toBe(false);
-    const all = (await api('GET', '/api/categories?includeArchived=true')).json() as Category[];
+    const all = (await api('GET', '/api/categories?includeArchived=true')).json<Category[]>();
     expect(all.some((c) => c.id === cat.id)).toBe(true);
 
     const deleted = await api('DELETE', `/api/categories/${cat.id}`);
@@ -111,7 +111,7 @@ describe('categories', () => {
   });
 
   it('refuses to delete a category that foods use', async () => {
-    const fruit = ((await api('GET', '/api/categories')).json() as Category[])[0]!;
+    const fruit = (await api('GET', '/api/categories')).json<Category[]>()[0]!;
     await createFood({ categoryId: fruit.id });
     const res = await api('DELETE', `/api/categories/${fruit.id}`);
     expect(res.statusCode).toBe(409);
@@ -182,14 +182,14 @@ describe('foods', () => {
       portions: [{ label: 'big', amount: 150 }],
     });
     expect(res.statusCode, res.body).toBe(200);
-    const updated = res.json() as Food;
+    const updated = res.json<Food>();
     expect(updated.name).toBe('Banana, ripe');
     expect(updated.per100.kcal).toBe(95);
     expect(updated.portions.map((p) => p.label)).toEqual(['big']);
   });
 
   it('lists with filters and hides archived foods by default', async () => {
-    const fruit = ((await api('GET', '/api/categories')).json() as Category[])[0]!;
+    const fruit = (await api('GET', '/api/categories')).json<Category[]>()[0]!;
     const banana = await createFood({ categoryId: fruit.id });
     await createFood({ name: 'Oats', per100: { ...per100, kcal: 389 } });
 
@@ -204,12 +204,12 @@ describe('foods', () => {
     expect((search.items as Food[]).map((f) => f.name)).toEqual(['Oats']);
 
     const archived = await api('POST', `/api/foods/${banana.id}/archive`);
-    expect((archived.json() as Food).archivedAt).not.toBeNull();
+    expect(archived.json<Food>().archivedAt).not.toBeNull();
     expect((await api('GET', '/api/foods')).json().total).toBe(1);
     expect((await api('GET', '/api/foods?includeArchived=true')).json().total).toBe(2);
 
     const restored = await api('POST', `/api/foods/${banana.id}/unarchive`);
-    expect((restored.json() as Food).archivedAt).toBeNull();
+    expect(restored.json<Food>().archivedAt).toBeNull();
   });
 
   it('escapes LIKE wildcards in search', async () => {
