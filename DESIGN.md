@@ -72,7 +72,7 @@ Interactions:
 - **Swipe** left/right anywhere on the strip or the content changes the day. The header "Today" pill returns to today.
 - **Tap an entry** → edit sheet (quantity, portion, slot, time, day, note; Delete at the bottom).
 - **Swipe an entry** left → Delete (with a 6 s "Undo" toast); right → Duplicate.
-- **Meal ⋯ menu**: Add food · Copy from yesterday · Copy from another day… · Copy to another day… · Save as meal template (lands with templates in Phase 4) · Clear meal.
+- **Meal ⋯ menu**: Add food · Copy from yesterday · Copy from another day… · Copy to another day… · Save as meal template… · Clear meal.
 - **Calorie ring color**: accent while under goal; green when inside the tolerance band; red when over the band. Macro bars use fixed macro colors (see §6) and fill past 100 % with a hatched overflow segment rather than clipping.
 - **Empty day** shows a friendly illustration-free empty card: "Nothing logged on Sat 19 Oct" with "Log food" and "Copy from yesterday".
 - **First run** (FR-O1): a checklist card above the summary: ① Set your goal ② Add some foods ③ Log your first meal, each linking to the right place, with checkmarks as they complete.

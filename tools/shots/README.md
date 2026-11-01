@@ -26,3 +26,11 @@ node tools/shots/phase3-goals.mjs      # Today ring under/on/over target, log sh
 `phase3-goals.mjs` resets settings (tolerance 10 %, Monday), replaces all goals with one effective a
 week ago (2,000 kcal), clears today's entries and logs food to reach each status in turn. It saves a
 goal and the profile through the editor, so it writes a profile into the dev database.
+
+```sh
+node tools/shots/phase4-recipes.mjs    # Dishes/Meals tabs, dish editor (ingredients, stale banner, recalculate), save-as-meal sheet, picker shelves, template review step, deep link, desktop editors
+```
+
+`phase4-recipes.mjs` seeds the recipe ingredients when missing, deletes every meal template, clears
+today's entries and frees the dish name "Dal" (renaming and archiving an old one that history still
+references). It edits and restores the "Red lentils" kcal to show the stale banner.

@@ -61,12 +61,12 @@ categories        id, name, sort_order, archived_at
 meal_slots        id, name, sort_order, window_start_min, window_end_min, archived_at
 foods             id, kind ('food'|'dish'), name, brand, category_id→categories, basis ('g'|'ml'),
                   kcal, protein, carbs, fat, fiber, sugar, saturated_fat, sodium_mg      -- per 100 basis
-                  cooked_weight_g (dishes), source ('manual'|'off'|'dish'), off_code,
+                  cooked_weight_g, servings, stale_since (dishes), source ('manual'|'off'|'dish'), off_code,
                   archived_at, created_at, updated_at
 portions          id, food_id→foods, label, grams, sort_order
-dish_ingredients  id, dish_food_id→foods, ingredient_food_id→foods, grams, sort_order
+dish_ingredients  id, dish_food_id→foods, ingredient_food_id→foods, amount, sort_order
 meal_templates    id, name, created_at, updated_at
-meal_template_items id, template_id→meal_templates, food_id→foods, grams, sort_order
+meal_template_items id, template_id→meal_templates, food_id→foods, amount, sort_order
 diary_entries     id, day, slot_id→meal_slots, logged_at, food_id→foods (null = ad-hoc),
                   name_snapshot, quantity, basis, portion_label, portion_count, note,
                   kcal_100, protein_100, carbs_100, fat_100, fiber_100, sugar_100, saturated_fat_100, sodium_mg_100,
@@ -112,8 +112,8 @@ All routes under `/api`, JSON, Zod-validated request and response, session cooki
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth           | `POST auth/login` · `POST auth/logout` · `GET auth/session`                                                                                                                                                                                                                                                     |
 | Foods          | `GET foods?query&category&sort&includeArchived` · `POST foods` · `GET/PATCH/DELETE foods/:id` · `POST foods/:id/archive` · `PUT foods/:id/portions` · `GET foods/export.csv` · `POST foods/import` (multipart CSV, `?dryRun=1` for preview)                                                                     |
-| Dishes         | `POST dishes` · `PATCH dishes/:id` (ingredients + cooked weight; recomputes) · `POST dishes/:id/recalculate`                                                                                                                                                                                                    |
-| Meal templates | `GET/POST meal-templates` · `PATCH/DELETE meal-templates/:id` · `POST meal-templates/:id/log { day, slotId, overrides[] }` · `POST meal-templates/from-meal { day, slotId, name }`                                                                                                                              |
+| Dishes         | `POST dishes` · `GET/PUT dishes/:id` (ingredients + cooked weight + servings; recomputes) · `POST dishes/:id/recalculate` (list/archive/delete via `foods`)                                                                                                                                                     |
+| Meal templates | `GET/POST meal-templates` · `GET/PUT/DELETE meal-templates/:id` · `POST meal-templates/:id/log { day, slotId, loggedAt?, overrides[] }` · `POST meal-templates/from-meal { day, slotId, name }`                                                                                                                 |
 | Diary          | `GET diary/:day` → entries grouped by slot, totals, goal, status, water · `POST diary/entries` · `PATCH/DELETE diary/entries/:id` · `POST diary/entries/:id/duplicate` · `POST diary/copy { fromDay, toDay, slotId? }` · `GET diary/recent-foods` · `GET diary/frequent-foods` · `GET diary/export.csv?from&to` |
 | Water          | `POST water { day, ml }` · `DELETE water/:id`                                                                                                                                                                                                                                                                   |
 | Weights        | `GET weights?from&to` · `PUT weights/:day` · `DELETE weights/:day`                                                                                                                                                                                                                                              |
