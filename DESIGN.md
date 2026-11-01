@@ -20,13 +20,14 @@ This document walks through the app the way you will experience it. Wireframes a
 **Desktop (≥ 1024 px):** a fixed left sidebar (240 px) with the same five destinations, app name and theme toggle at the top, "Log food" primary button under the name. Content area max 1200 px, centered.
 
 Tabs:
-| Tab | Purpose |
-|---|---|
-| Today | The diary. Where you spend 90 % of your time. |
-| Foods | Library: Foods / Dishes / Meals. |
-| Insights | Trends and adherence. |
-| Weight | Body weight log and trend. |
-| More | Goals, meal slots, categories, appearance, data, profile, logout, about. |
+
+| Tab      | Purpose                                                                  |
+| -------- | ------------------------------------------------------------------------ |
+| Today    | The diary. Where you spend 90 % of your time.                            |
+| Foods    | Library: Foods / Dishes / Meals.                                         |
+| Insights | Trends and adherence.                                                    |
+| Weight   | Body weight log and trend.                                               |
+| More     | Goals, meal slots, categories, appearance, data, profile, logout, about. |
 
 Routes are real URLs (`/today/2025-10-19`, `/foods/42`, `/insights?range=month`) so the browser back button and desktop deep links behave.
 
@@ -67,6 +68,7 @@ Routes are real URLs (`/today/2025-10-19`, `/foods/42`, `/insights?range=month`)
 ```
 
 Interactions:
+
 - **Swipe** left/right anywhere on the strip or the content changes the day. The header "Today" pill returns to today.
 - **Tap an entry** → edit sheet (quantity, portion, slot, time, day, note; Delete at the bottom).
 - **Swipe an entry** left → Delete (with a 6 s "Undo" toast); right → Duplicate.

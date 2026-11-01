@@ -33,24 +33,24 @@ plate/
 
 ## 2. Stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| Runtime | Node 22 LTS | Current LTS; arm64 prebuilt binaries available for every native dependency used. |
-| HTTP | Fastify 5 | Fast, schema-first, small footprint on a Pi; plugins for cookies, rate-limit, static, helmet. |
-| Validation | Zod (shared) via `fastify-type-provider-zod` | One schema per entity drives API validation, TS types and the UI forms. |
-| DB | SQLite via `better-sqlite3`, Drizzle ORM + drizzle-kit migrations | Single file, synchronous and fast, trivial backup, no second container. |
-| Frontend | React 18, TypeScript, Vite | Standard; Vite builds are fast and produce a static bundle. |
-| Styling | Tailwind CSS + Radix UI primitives (shadcn/ui pattern) | Full visual control for a mobile-first design; accessible primitives for dialogs, sheets, menus, tabs. |
-| Motion | Framer Motion | Springs, layout animations, gesture (swipe, drag) support. |
-| Charts | Recharts | Composable SVG charts, responsive, good enough for bars/lines/donut; heatmap is hand-built with CSS grid. |
-| Data fetching | TanStack Query | Caching, optimistic updates (log → ring animates instantly), retries, invalidation. |
-| Routing | React Router 6 | URL-driven screens. |
-| Forms | react-hook-form + Zod resolver | Shared schemas validate on the client identically to the server. |
-| Dates | date-fns | Tree-shakable, works with plain `YYYY-MM-DD` day keys. |
-| Fuzzy search | small in-house scorer (normalize, prefix/substring/typo distance) | Avoids a dependency; the library is a few thousand rows at most and is searched in memory on the client. |
-| PWA | `vite-plugin-pwa` (Workbox) | Precache app shell; network-only for `/api`. |
-| Tests | Vitest (unit + API integration), Playwright (a few e2e smoke flows) | |
-| Lint/format | ESLint + Prettier, strict TS | |
+| Layer         | Choice                                                              | Why                                                                                                       |
+| ------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Runtime       | Node 22 LTS                                                         | Current LTS; arm64 prebuilt binaries available for every native dependency used.                          |
+| HTTP          | Fastify 5                                                           | Fast, schema-first, small footprint on a Pi; plugins for cookies, rate-limit, static, helmet.             |
+| Validation    | Zod (shared) via `fastify-type-provider-zod`                        | One schema per entity drives API validation, TS types and the UI forms.                                   |
+| DB            | SQLite via `better-sqlite3`, Drizzle ORM + drizzle-kit migrations   | Single file, synchronous and fast, trivial backup, no second container.                                   |
+| Frontend      | React 18, TypeScript, Vite                                          | Standard; Vite builds are fast and produce a static bundle.                                               |
+| Styling       | Tailwind CSS + Radix UI primitives (shadcn/ui pattern)              | Full visual control for a mobile-first design; accessible primitives for dialogs, sheets, menus, tabs.    |
+| Motion        | Framer Motion                                                       | Springs, layout animations, gesture (swipe, drag) support.                                                |
+| Charts        | Recharts                                                            | Composable SVG charts, responsive, good enough for bars/lines/donut; heatmap is hand-built with CSS grid. |
+| Data fetching | TanStack Query                                                      | Caching, optimistic updates (log → ring animates instantly), retries, invalidation.                       |
+| Routing       | React Router 6                                                      | URL-driven screens.                                                                                       |
+| Forms         | react-hook-form + Zod resolver                                      | Shared schemas validate on the client identically to the server.                                          |
+| Dates         | date-fns                                                            | Tree-shakable, works with plain `YYYY-MM-DD` day keys.                                                    |
+| Fuzzy search  | small in-house scorer (normalize, prefix/substring/typo distance)   | Avoids a dependency; the library is a few thousand rows at most and is searched in memory on the client.  |
+| PWA           | `vite-plugin-pwa` (Workbox)                                         | Precache app shell; network-only for `/api`.                                                              |
+| Tests         | Vitest (unit + API integration), Playwright (a few e2e smoke flows) |                                                                                                           |
+| Lint/format   | ESLint + Prettier, strict TS                                        |                                                                                                           |
 
 ## 3. Data model (SQLite, Drizzle)
 
@@ -83,6 +83,7 @@ sessions          id (random 256-bit), created_at, last_seen_at, expires_at, use
 Indexes: `diary_entries(day)`, `diary_entries(food_id)`, `diary_entries(logged_at)`, `water_entries(day)`, `foods(name)`, `goals(effective_from)`.
 
 Design points:
+
 - **Snapshots, not references, for history.** An entry stores the per-100 values and name as they were when logged (FR-D10). Editing the quantity recomputes from the entry's own snapshot. The library can change freely.
 - **Entry totals are derived**, never stored: `kcal = kcal_100 * quantity / 100`. SQL aggregates do the same arithmetic, so the day view, insights and exports can never disagree.
 - **Goal for a day** = the goal with the greatest `effective_from ≤ day`. Days before the first goal have no goal (shown as "no goal set", excluded from adherence).
@@ -107,21 +108,21 @@ Design points:
 
 All routes under `/api`, JSON, Zod-validated request and response, session cookie required except `auth/login` and `health`. Errors are `{ error: { code, message, details? } }` with proper status codes.
 
-| Area | Routes |
-|---|---|
-| Auth | `POST auth/login` · `POST auth/logout` · `GET auth/session` |
-| Foods | `GET foods?query&category&sort&includeArchived` · `POST foods` · `GET/PATCH/DELETE foods/:id` · `POST foods/:id/archive` · `PUT foods/:id/portions` · `GET foods/export.csv` · `POST foods/import` (multipart CSV, `?dryRun=1` for preview) |
-| Dishes | `POST dishes` · `PATCH dishes/:id` (ingredients + cooked weight; recomputes) · `POST dishes/:id/recalculate` |
-| Meal templates | `GET/POST meal-templates` · `PATCH/DELETE meal-templates/:id` · `POST meal-templates/:id/log { day, slotId, overrides[] }` · `POST meal-templates/from-meal { day, slotId, name }` |
-| Diary | `GET diary/:day` → entries grouped by slot, totals, goal, status, water · `POST diary/entries` · `PATCH/DELETE diary/entries/:id` · `POST diary/entries/:id/duplicate` · `POST diary/copy { fromDay, toDay, slotId? }` · `GET diary/recent-foods` · `GET diary/frequent-foods` · `GET diary/export.csv?from&to` |
-| Water | `POST water { day, ml }` · `DELETE water/:id` |
-| Weights | `GET weights?from&to` · `PUT weights/:day` · `DELETE weights/:day` |
-| Goals | `GET goals` · `GET goals/active?day` · `POST goals` · `DELETE goals/:id` · `POST goals/calculate` |
-| Insights | `GET insights/daily?from&to` (one row per day: totals, goal, status) · `GET insights/top-foods?from&to` · `GET insights/by-slot?from&to` · `GET insights/weight?from&to` (entries + MA) |
-| Config | `GET/PUT settings` · `GET/POST/PATCH meal-slots` · `PUT meal-slots/order` · same for `categories` · `GET/PUT profile` |
-| Data | `GET backup.json` · `POST backup/restore` (multipart JSON, `confirm: "REPLACE"`) · `GET backup.sqlite` (uses `VACUUM INTO` for a consistent snapshot) |
-| Lookup | `GET off/search?q` · `GET off/product/:code` (404 if disabled) |
-| Ops | `GET health` → `{ ok, version, dbOk }` |
+| Area           | Routes                                                                                                                                                                                                                                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth           | `POST auth/login` · `POST auth/logout` · `GET auth/session`                                                                                                                                                                                                                                                     |
+| Foods          | `GET foods?query&category&sort&includeArchived` · `POST foods` · `GET/PATCH/DELETE foods/:id` · `POST foods/:id/archive` · `PUT foods/:id/portions` · `GET foods/export.csv` · `POST foods/import` (multipart CSV, `?dryRun=1` for preview)                                                                     |
+| Dishes         | `POST dishes` · `PATCH dishes/:id` (ingredients + cooked weight; recomputes) · `POST dishes/:id/recalculate`                                                                                                                                                                                                    |
+| Meal templates | `GET/POST meal-templates` · `PATCH/DELETE meal-templates/:id` · `POST meal-templates/:id/log { day, slotId, overrides[] }` · `POST meal-templates/from-meal { day, slotId, name }`                                                                                                                              |
+| Diary          | `GET diary/:day` → entries grouped by slot, totals, goal, status, water · `POST diary/entries` · `PATCH/DELETE diary/entries/:id` · `POST diary/entries/:id/duplicate` · `POST diary/copy { fromDay, toDay, slotId? }` · `GET diary/recent-foods` · `GET diary/frequent-foods` · `GET diary/export.csv?from&to` |
+| Water          | `POST water { day, ml }` · `DELETE water/:id`                                                                                                                                                                                                                                                                   |
+| Weights        | `GET weights?from&to` · `PUT weights/:day` · `DELETE weights/:day`                                                                                                                                                                                                                                              |
+| Goals          | `GET goals` · `GET goals/active?day` · `POST goals` · `DELETE goals/:id` · `POST goals/calculate`                                                                                                                                                                                                               |
+| Insights       | `GET insights/daily?from&to` (one row per day: totals, goal, status) · `GET insights/top-foods?from&to` · `GET insights/by-slot?from&to` · `GET insights/weight?from&to` (entries + MA)                                                                                                                         |
+| Config         | `GET/PUT settings` · `GET/POST/PATCH meal-slots` · `PUT meal-slots/order` · same for `categories` · `GET/PUT profile`                                                                                                                                                                                           |
+| Data           | `GET backup.json` · `POST backup/restore` (multipart JSON, `confirm: "REPLACE"`) · `GET backup.sqlite` (uses `VACUUM INTO` for a consistent snapshot)                                                                                                                                                           |
+| Lookup         | `GET off/search?q` · `GET off/product/:code` (404 if disabled)                                                                                                                                                                                                                                                  |
+| Ops            | `GET health` → `{ ok, version, dbOk }`                                                                                                                                                                                                                                                                          |
 
 Write endpoints are idempotency-safe where it matters (`PUT weights/:day`, `PUT portions`). Large reads are paginated or range-bounded (insights ranges capped at 2 years).
 
@@ -198,21 +199,21 @@ Multi-stage Dockerfile: `node:22-bookworm-slim` builder (pnpm install, build sha
 ```yaml
 services:
   plate:
-    image: plate:latest          # or build: { context: .., dockerfile: docker/Dockerfile }
+    image: plate:latest # or build: { context: .., dockerfile: docker/Dockerfile }
     restart: unless-stopped
     ports:
-      - "${PLATE_BIND:-127.0.0.1}:${PLATE_PORT:-8080}:8080"
+      - '${PLATE_BIND:-127.0.0.1}:${PLATE_PORT:-8080}:8080'
     environment:
       DATABASE_PATH: /data/plate.db
       APP_INITIAL_PASSWORD: ${APP_INITIAL_PASSWORD:?set in .env (used only until the first start)}
-      TRUST_PROXY: "false"
-      OFF_LOOKUP_ENABLED: "true"
+      TRUST_PROXY: 'false'
+      OFF_LOOKUP_ENABLED: 'true'
     volumes:
       - ./data:/data
     read_only: true
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
-    healthcheck: { test: ["CMD", "node", "healthcheck.js"], interval: 30s, timeout: 5s, retries: 3 }
+    healthcheck: { test: ['CMD', 'node', 'healthcheck.js'], interval: 30s, timeout: 5s, retries: 3 }
 ```
 
 `.env.example` ships with `APP_INITIAL_PASSWORD=password` as you asked; change the password from Settings → Security after the first login. The session-signing material is generated on first start and stored in `/data/session.key` (mode 600) so sessions survive restarts without you managing another secret.
@@ -235,17 +236,17 @@ services:
 
 Each phase follows infra → backend → frontend → your approval. Nothing starts the next phase until you sign off.
 
-| # | Phase | Delivered | You verify |
-|---|---|---|---|
-| 0 | Scaffold & gate | Monorepo, shared package, API skeleton with auth + health, web shell (tabs, sidebar, theme, login), Dockerfile + compose, multi-arch build. | `docker compose up` on your Mac; anonymous `curl` gets 401; login works; theme toggles. |
-| 1 | Food library | Foods, portions, categories, search/sort/filter, archive/delete rules, CSV import/export. | Add a dozen foods on your phone; import a CSV. |
-| 2 | Diary core | Meal slots, log sheet (pick + quantity), day view, edit/delete/undo/duplicate, backdating, ad-hoc entry, recent/frequent. | Log a full day in under a minute; edit yesterday. |
-| 3 | Goals & summary | Goals with effective dates, calculator, tolerance, summary card with rings, day status. | Set a goal; ring and colors behave. |
-| 4 | Dishes & meals | Dish editor with computed per-100, recalculate, meal templates, save-as-meal, copy meal/day. | Build a dish, log 250 g of it. |
-| 5 | Water & weight | Water card and goal; weight log, stats, chart. | Log water and a week of weights. |
-| 6 | Insights | All seven insight views, range navigation, click-through to days. | Review a month of data. |
-| 7 | Data & settings | Backup/restore, SQLite snapshot, diary CSV, slots/categories managers, profile, about. | Export, wipe, restore; everything is back. |
-| 8 | Lookup | Open Food Facts search/barcode prefill, disable switch. | Prefill "oats" from OFF. |
-| 9 | Polish | PWA install assets, animation pass, empty/loading/error audit on every screen, desktop pass, accessibility pass, Playwright smoke, Pi deployment runbook in README. | Install to home screen; run on the Pi. |
+| #   | Phase           | Delivered                                                                                                                                                           | You verify                                                                              |
+| --- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 0   | Scaffold & gate | Monorepo, shared package, API skeleton with auth + health, web shell (tabs, sidebar, theme, login), Dockerfile + compose, multi-arch build.                         | `docker compose up` on your Mac; anonymous `curl` gets 401; login works; theme toggles. |
+| 1   | Food library    | Foods, portions, categories, search/sort/filter, archive/delete rules, CSV import/export.                                                                           | Add a dozen foods on your phone; import a CSV.                                          |
+| 2   | Diary core      | Meal slots, log sheet (pick + quantity), day view, edit/delete/undo/duplicate, backdating, ad-hoc entry, recent/frequent.                                           | Log a full day in under a minute; edit yesterday.                                       |
+| 3   | Goals & summary | Goals with effective dates, calculator, tolerance, summary card with rings, day status.                                                                             | Set a goal; ring and colors behave.                                                     |
+| 4   | Dishes & meals  | Dish editor with computed per-100, recalculate, meal templates, save-as-meal, copy meal/day.                                                                        | Build a dish, log 250 g of it.                                                          |
+| 5   | Water & weight  | Water card and goal; weight log, stats, chart.                                                                                                                      | Log water and a week of weights.                                                        |
+| 6   | Insights        | All seven insight views, range navigation, click-through to days.                                                                                                   | Review a month of data.                                                                 |
+| 7   | Data & settings | Backup/restore, SQLite snapshot, diary CSV, slots/categories managers, profile, about.                                                                              | Export, wipe, restore; everything is back.                                              |
+| 8   | Lookup          | Open Food Facts search/barcode prefill, disable switch.                                                                                                             | Prefill "oats" from OFF.                                                                |
+| 9   | Polish          | PWA install assets, animation pass, empty/loading/error audit on every screen, desktop pass, accessibility pass, Playwright smoke, Pi deployment runbook in README. | Install to home screen; run on the Pi.                                                  |
 
 Rough size: this is a medium-large build; expect it to be delivered over many sessions, one phase at a time.
