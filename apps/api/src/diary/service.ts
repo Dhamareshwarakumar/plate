@@ -1,5 +1,8 @@
 import {
+  computeDayStatus,
   entryTotals,
+  goalRemaining,
+  localDayKey,
   type CopyDayInput,
   type CopyResult,
   type DiaryDay,
@@ -16,7 +19,9 @@ import { and, asc, count, desc, eq, gte, isNotNull, isNull, lte, sql } from 'dri
 import type { Db } from '../db/index.js';
 import { diaryEntries, foods, mealSlots, portions } from '../db/schema.js';
 import { AppError } from '../errors.js';
+import type { GoalService } from '../goals/service.js';
 import { toMealSlot } from '../mealSlots/service.js';
+import type { SettingsService } from '../settings/service.js';
 
 type EntryRow = typeof diaryEntries.$inferSelect;
 
@@ -114,20 +119,22 @@ function snapshotColumns(per100: Nutrients) {
   };
 }
 
-/** `YYYY-MM-DD` of a Date in the server's local zone. */
-function localDayKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+/** Services the diary reads from to judge a day (FR-G1, FR-G3). */
+export interface DiaryServiceDeps {
+  goals: GoalService;
+  settings: SettingsService;
 }
 
 export class DiaryService {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly deps: DiaryServiceDeps,
+  ) {}
 
   /**
    * The day grouped by meal slot: every active slot in order (even when empty), then any archived
-   * slot that still has entries that day. Totals are computed in SQL.
+   * slot that still has entries that day. Totals are computed in SQL; the goal in effect on the day
+   * gives `status` and `remaining`.
    */
   getDay(day: string): DiaryDay {
     const slotRows = this.db
@@ -175,13 +182,21 @@ export class DiaryService {
       totals: totalsBySlot.get(slot.id) ?? ZERO,
     }));
 
+    const totals = dayTotal ?? ZERO;
+    const goal = this.deps.goals.activeFor(day);
     return {
       day,
       slots,
-      totals: dayTotal ?? ZERO,
+      totals,
       entryCount: entryRows.length,
-      goal: null,
-      status: entryRows.length === 0 ? 'not_logged' : 'no_goal',
+      goal,
+      status: computeDayStatus(
+        totals.kcal,
+        goal?.kcal ?? null,
+        entryRows.length,
+        this.deps.settings.get().tolerancePct,
+      ),
+      remaining: goal ? goalRemaining(goal, totals) : null,
       water: { ml: 0 },
     };
   }

@@ -154,3 +154,36 @@ export const diaryEntries = sqliteTable(
     index('diary_entries_logged_at_idx').on(t.loggedAt),
   ],
 );
+
+/**
+ * Goals, each in effect from `effective_from` until the next goal's date (FR-G1). One goal per
+ * start day; posting the same `effective_from` again replaces that goal.
+ */
+export const goals = sqliteTable(
+  'goals',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** `YYYY-MM-DD`; the first day the goal applies to. */
+    effectiveFrom: text('effective_from').notNull(),
+    kcal: real('kcal').notNull(),
+    proteinG: real('protein_g').notNull(),
+    carbsG: real('carbs_g').notNull(),
+    fatG: real('fat_g').notNull(),
+    fiberG: real('fiber_g'),
+    waterMl: real('water_ml'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('goals_effective_from_unique').on(t.effectiveFrom)],
+);
+
+/** Single-row table (id = 1) with what the goal calculator needs; weight comes from the weight log. */
+export const profile = sqliteTable('profile', {
+  id: integer('id').primaryKey(),
+  sex: text('sex', { enum: ['male', 'female'] }).notNull(),
+  /** `YYYY-MM-DD` */
+  birthDate: text('birth_date').notNull(),
+  heightCm: real('height_cm').notNull(),
+  activity: text('activity', {
+    enum: ['sedentary', 'light', 'moderate', 'active', 'very_active'],
+  }).notNull(),
+});

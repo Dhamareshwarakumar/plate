@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { dayKeySchema, daysBetween, isValidDayKey } from './days.js';
 import {
   copyDaySchema,
-  dayKeySchema,
   dayRangeQuerySchema,
-  daysBetween,
   dayTotals,
   diaryEntryInputSchema,
   diaryEntryPatchSchema,
   entryTotals,
-  isValidDayKey,
   loggedAtSchema,
 } from './diary.js';
 

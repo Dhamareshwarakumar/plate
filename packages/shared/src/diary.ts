@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dayKeySchema, daysBetween } from './days.js';
 import {
   FOOD_NAME_MAX,
   PORTION_LABEL_MAX,
@@ -6,37 +7,10 @@ import {
   idSchema,
   isoDateTimeSchema,
 } from './foods.js';
+import { dayStatusSchema, goalRemainingSchema, goalSchema } from './goals.js';
 import { mealSlotSchema } from './mealSlots.js';
 import { nutrientsSchema, scaleNutrients, sumNutrients, type Nutrients } from './nutrition.js';
 import { optionalTrimmed, trimmed } from './zod-helpers.js';
-
-// ---------- day keys ----------
-
-export const DAY_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
-/** True for `YYYY-MM-DD` strings naming a real calendar date (2024-02-29 yes, 2025-02-30 no). */
-export function isValidDayKey(value: string): boolean {
-  if (!DAY_KEY_REGEX.test(value)) return false;
-  const [y, m, d] = value.split('-').map(Number) as [number, number, number];
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
-}
-
-export const dayKeySchema = z
-  .string()
-  .refine(isValidDayKey, { message: 'Expected a calendar date as YYYY-MM-DD' });
-export type DayKey = z.infer<typeof dayKeySchema>;
-
-/** Whole days from `from` to `to` inclusive of both ends minus one (same day → 0). */
-export function daysBetween(from: string, to: string): number {
-  const ms = Date.UTC(Number(to.slice(0, 4)), Number(to.slice(5, 7)) - 1, Number(to.slice(8, 10)));
-  const start = Date.UTC(
-    Number(from.slice(0, 4)),
-    Number(from.slice(5, 7)) - 1,
-    Number(from.slice(8, 10)),
-  );
-  return Math.round((ms - start) / 86_400_000);
-}
 
 /**
  * Client-side local timestamp with offset, e.g. `2025-10-19T07:42:13+02:00`. The leading
@@ -55,9 +29,6 @@ export const DIARY_NOTE_MAX = 280;
 export const QUANTITY_MAX = 100_000;
 export const PORTION_COUNT_MAX = 1000;
 export const DAY_RANGE_MAX_DAYS = 400;
-
-export const dayStatusSchema = z.enum(['not_logged', 'no_goal', 'on_target', 'under', 'over']);
-export type DayStatus = z.infer<typeof dayStatusSchema>;
 
 // ---------- entries ----------
 
@@ -165,16 +136,18 @@ export const diaryDaySlotSchema = z.object({
 export type DiaryDaySlot = z.infer<typeof diaryDaySlotSchema>;
 
 /**
- * One day of the diary. `goal`, `status` and `water` are placeholders that Phases 3 and 5 fill in
- * (goal becomes nullable goal, status gains on_target/under/over, water gains entries).
+ * One day of the diary. `goal` is the goal in effect on that day (FR-G1) or null, `status` judges
+ * the day's kcal against it with the adherence tolerance (FR-G3) and `remaining` is goal minus
+ * totals (null without a goal). `water` is a placeholder that Phase 5 fills in.
  */
 export const diaryDaySchema = z.object({
   day: dayKeySchema,
   slots: z.array(diaryDaySlotSchema),
   totals: nutrientsSchema,
   entryCount: z.number().int().nonnegative(),
-  goal: z.null(),
+  goal: goalSchema.nullable(),
   status: dayStatusSchema,
+  remaining: goalRemainingSchema.nullable(),
   water: z.object({ ml: z.number().nonnegative() }),
 });
 export type DiaryDay = z.infer<typeof diaryDaySchema>;

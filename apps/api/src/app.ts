@@ -16,13 +16,17 @@ import type { Db } from './db/index.js';
 import { DiaryService } from './diary/service.js';
 import { errorBody, errorHandler } from './errors.js';
 import { FoodService } from './foods/service.js';
+import { GoalService } from './goals/service.js';
 import { MealSlotService } from './mealSlots/service.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
 import { categoryRoutes } from './routes/categories.js';
 import { diaryRoutes } from './routes/diary.js';
 import { foodRoutes } from './routes/foods.js';
+import { goalRoutes } from './routes/goals.js';
 import { healthRoutes } from './routes/health.js';
 import { mealSlotRoutes } from './routes/mealSlots.js';
+import { settingsRoutes } from './routes/settings.js';
+import { SettingsService } from './settings/service.js';
 
 export interface BuildAppOptions {
   config: AppConfig;
@@ -100,7 +104,9 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const categoryService = new CategoryService(db);
   const foodService = new FoodService(db);
   const mealSlotService = new MealSlotService(db);
-  const diaryService = new DiaryService(db);
+  const settingsService = new SettingsService(db);
+  const goalService = new GoalService(db);
+  const diaryService = new DiaryService(db, { goals: goalService, settings: settingsService });
 
   await app.register(
     async (api) => {
@@ -115,6 +121,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         await guarded.register(foodRoutes, { foods: foodService, categories: categoryService });
         await guarded.register(mealSlotRoutes, { mealSlots: mealSlotService });
         await guarded.register(diaryRoutes, { diary: diaryService });
+        await guarded.register(settingsRoutes, { settings: settingsService });
+        await guarded.register(goalRoutes, { goals: goalService, settings: settingsService });
       });
     },
     { prefix: '/api' },
