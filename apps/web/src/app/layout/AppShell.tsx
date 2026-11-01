@@ -1,9 +1,10 @@
-import { Moon, Sun, SunMoon } from 'lucide-react';
+import { Moon, Plus, Sun, SunMoon } from 'lucide-react';
 import { motion } from 'motion/react';
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { BrandMark } from '@/components/brand-mark';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { todayKey } from '@/lib/dates';
 import { useTheme, type ThemePreference } from '@/lib/theme';
 import { NAV_ITEMS } from './nav';
 
@@ -17,7 +18,7 @@ export function AppShell() {
       <Sidebar />
       <main
         id="main"
-        className="pt-safe gutter lg:gutter-lg mx-auto w-full max-w-5xl flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-10"
+        className="pt-safe gutter lg:gutter-lg mx-auto w-full max-w-[75rem] flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-10"
       >
         <Outlet />
       </main>
@@ -35,7 +36,12 @@ function Sidebar() {
         <span className="text-fg text-lg font-semibold tracking-tight">Plate</span>
       </div>
 
-      <nav aria-label="Primary" className="mt-8 flex flex-col gap-1">
+      <Link to={`/today/${todayKey()}?log=new`} className={cn(buttonVariants({}), 'mt-6 w-full')}>
+        <Plus className="size-4" aria-hidden="true" />
+        Log food
+      </Link>
+
+      <nav aria-label="Primary" className="mt-6 flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const active = location.pathname.startsWith(item.to);
           return (

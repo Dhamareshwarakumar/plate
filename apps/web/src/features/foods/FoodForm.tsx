@@ -24,6 +24,8 @@ export interface FoodFormProps {
   mode: 'create' | 'edit';
   /** Rendered under the fields (archive/delete controls in edit mode). */
   secondaryActions?: React.ReactNode;
+  /** Hidden when the editor was opened from the log flow (one food, then back to the diary). */
+  hideSaveAndAdd?: boolean;
 }
 
 export function FoodForm({
@@ -35,6 +37,7 @@ export function FoodForm({
   submitting,
   mode,
   secondaryActions,
+  hideSaveAndAdd = false,
 }: FoodFormProps) {
   const form = useForm<FoodFormValues>({
     resolver: zodResolver(foodFormSchema),
@@ -345,7 +348,7 @@ export function FoodForm({
       <div className="border-border flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-2">{secondaryActions}</div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row">
-          {mode === 'create' ? (
+          {mode === 'create' && !hideSaveAndAdd ? (
             <Button
               type="button"
               variant="secondary"

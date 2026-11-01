@@ -11,3 +11,10 @@ Conventions for new scripts: one file per phase (`phaseN-<topic>.mjs`), iPhone 1
 phone shots and a 1440×900 viewport for desktop, both colour schemes where the screen has notable
 colour, `page.on('pageerror')` logged, labels matched with `{ exact: true }`. Open the PNGs and look
 at them; a screenshot nobody inspects proves nothing.
+
+```sh
+node tools/shots/phase2-diary.mjs      # Today: empty day, log flow, entries, edit, swipe, meal slots, desktop
+```
+
+`phase2-diary.mjs` seeds a small library through the API when needed and clears today's and yesterday's
+entries first so the shots are deterministic. Run it against a dev database you do not mind touching.

@@ -28,6 +28,12 @@ export function FoodEditorPage() {
   const isCreate = id === undefined;
   const [searchParams] = useSearchParams();
   const initialName = searchParams.get('name') ?? undefined;
+  // Same-origin path only (`/today/2025-10-19`): after creating, go back there with the sheet open.
+  const returnToRaw = searchParams.get('returnTo');
+  const returnTo =
+    returnToRaw && returnToRaw.startsWith('/') && !returnToRaw.startsWith('//')
+      ? returnToRaw
+      : null;
 
   const navigate = useNavigate();
   const categories = useCategories();
@@ -77,6 +83,10 @@ export function FoodEditorPage() {
       if (isCreate) {
         const created = await createFood.mutateAsync(input);
         toast.success(`${created.name} added`);
+        if (returnTo) {
+          void navigate(`${returnTo}?log=${created.id}`);
+          return;
+        }
         if (intent === 'save') close();
       } else {
         const updated = await updateFood.mutateAsync({ id, input });
@@ -170,6 +180,7 @@ export function FoodEditorPage() {
           onSubmit={onSubmit}
           formRef={captureForm}
           submitting={submitting}
+          hideSaveAndAdd={returnTo !== null}
           secondaryActions={
             food.data ? (
               <>

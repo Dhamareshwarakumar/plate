@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import { MotionConfig } from 'motion/react';
 import { useState } from 'react';
 import { RouterProvider } from 'react-router';
 import { Toaster } from 'sonner';
@@ -13,8 +14,11 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <RouterProvider router={router} />
-          <ThemedToaster />
+          {/* Motion springs follow prefers-reduced-motion, like the CSS animations in globals.css. */}
+          <MotionConfig reducedMotion="user">
+            <RouterProvider router={router} />
+            <ThemedToaster />
+          </MotionConfig>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

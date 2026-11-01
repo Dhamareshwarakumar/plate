@@ -1,6 +1,6 @@
 import { healthResponseSchema } from '@plate/shared';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, FolderCog, LogOut, Moon, Sun, SunMoon } from 'lucide-react';
+import { ChevronRight, Clock, FolderCog, LogOut, Moon, Sun, SunMoon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
@@ -63,6 +63,14 @@ function LibraryCard() {
       >
         <FolderCog className="text-fg-muted size-5" aria-hidden="true" />
         <span className="text-fg flex-1 text-sm font-medium">Categories</span>
+        <ChevronRight className="text-fg-faint size-4" aria-hidden="true" />
+      </Link>
+      <Link
+        to="/more/meal-slots"
+        className="hover:bg-surface-2 flex items-center gap-3 border-t border-border px-4 py-3.5 transition-colors sm:px-5"
+      >
+        <Clock className="text-fg-muted size-5" aria-hidden="true" />
+        <span className="text-fg flex-1 text-sm font-medium">Meal slots</span>
         <ChevronRight className="text-fg-faint size-4" aria-hidden="true" />
       </Link>
     </Card>
