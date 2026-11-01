@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Native modules and bundlers that need their install scripts to run.
+allowBuilds:
+  argon2: true
+  better-sqlite3: true
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - globals@17.14.0
