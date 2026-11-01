@@ -20,15 +20,20 @@ export interface SaveAsMealSheetProps {
 }
 
 /** Name prompt for "Save as meal template…" (FR-R3). Library entries become items; ad-hoc ones are skipped. */
-export function SaveAsMealSheet({ section, open, day, onClose }: SaveAsMealSheetProps) {
-  if (!section) return null;
+export function SaveAsMealSheet(props: SaveAsMealSheetProps) {
+  // Fresh name/error state on every open; the same instance stays mounted during the close animation.
+  const [session, setSession] = useState(0);
+  const [prevOpen, setPrevOpen] = useState(props.open);
+  if (props.open !== prevOpen) {
+    setPrevOpen(props.open);
+    if (props.open) setSession((n) => n + 1);
+  }
+  if (!props.section) return null;
   return (
     <SaveAsMealSheetInner
-      key={`${section.slot.id}-${open ? 'open' : 'closed'}`}
-      section={section}
-      open={open}
-      day={day}
-      onClose={onClose}
+      key={`${props.section.slot.id}-${session}`}
+      {...props}
+      section={props.section}
     />
   );
 }
