@@ -31,7 +31,7 @@ const api = (
   payload?: unknown,
 ) => {
   const options: InjectOptions = { method, url, headers: { cookie } };
-  if (payload !== undefined) options.payload = payload as InjectOptions['payload'];
+  if (payload !== undefined) options.payload = payload as NonNullable<InjectOptions['payload']>;
   return ctx.app.inject(options);
 };
 
