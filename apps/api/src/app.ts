@@ -14,17 +14,21 @@ import { CategoryService } from './categories/service.js';
 import type { AppConfig } from './config.js';
 import type { Db } from './db/index.js';
 import { DiaryService } from './diary/service.js';
+import { DishService } from './dishes/service.js';
 import { errorBody, errorHandler } from './errors.js';
 import { FoodService } from './foods/service.js';
 import { GoalService } from './goals/service.js';
 import { MealSlotService } from './mealSlots/service.js';
+import { MealTemplateService } from './mealTemplates/service.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
 import { categoryRoutes } from './routes/categories.js';
 import { diaryRoutes } from './routes/diary.js';
+import { dishRoutes } from './routes/dishes.js';
 import { foodRoutes } from './routes/foods.js';
 import { goalRoutes } from './routes/goals.js';
 import { healthRoutes } from './routes/health.js';
 import { mealSlotRoutes } from './routes/mealSlots.js';
+import { mealTemplateRoutes } from './routes/mealTemplates.js';
 import { settingsRoutes } from './routes/settings.js';
 import { SettingsService } from './settings/service.js';
 
@@ -107,6 +111,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const settingsService = new SettingsService(db);
   const goalService = new GoalService(db);
   const diaryService = new DiaryService(db, { goals: goalService, settings: settingsService });
+  const dishService = new DishService(db, foodService);
+  const mealTemplateService = new MealTemplateService(db, diaryService);
 
   await app.register(
     async (api) => {
@@ -121,6 +127,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         await guarded.register(foodRoutes, { foods: foodService, categories: categoryService });
         await guarded.register(mealSlotRoutes, { mealSlots: mealSlotService });
         await guarded.register(diaryRoutes, { diary: diaryService });
+        await guarded.register(dishRoutes, { dishes: dishService });
+        await guarded.register(mealTemplateRoutes, { mealTemplates: mealTemplateService });
         await guarded.register(settingsRoutes, { settings: settingsService });
         await guarded.register(goalRoutes, { goals: goalService, settings: settingsService });
       });

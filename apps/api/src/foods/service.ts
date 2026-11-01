@@ -1,7 +1,14 @@
 import type { Food, FoodInputParsed, FoodListQuery, Portion } from '@plate/shared';
 import { and, asc, count, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/index.js';
-import { categories, diaryEntries, foods, portions } from '../db/schema.js';
+import {
+  categories,
+  diaryEntries,
+  dishIngredients,
+  foods,
+  mealTemplateItems,
+  portions,
+} from '../db/schema.js';
 import { AppError } from '../errors.js';
 
 type FoodRow = typeof foods.$inferSelect;
@@ -13,6 +20,19 @@ function toPortion(row: PortionRow): Portion {
   return { id: row.id, label: row.label, amount: row.amount, sortOrder: row.sortOrder };
 }
 
+export function per100Of(row: FoodRow): Food['per100'] {
+  return {
+    kcal: row.kcal,
+    protein: row.protein,
+    carbs: row.carbs,
+    fat: row.fat,
+    fiber: row.fiber,
+    sugar: row.sugar,
+    saturatedFat: row.saturatedFat,
+    sodiumMg: row.sodiumMg,
+  };
+}
+
 export function toFood(row: FoodRow, portionRows: PortionRow[]): Food {
   return {
     id: row.id,
@@ -21,18 +41,10 @@ export function toFood(row: FoodRow, portionRows: PortionRow[]): Food {
     brand: row.brand === '' ? null : row.brand,
     categoryId: row.categoryId,
     basis: row.basis,
-    per100: {
-      kcal: row.kcal,
-      protein: row.protein,
-      carbs: row.carbs,
-      fat: row.fat,
-      fiber: row.fiber,
-      sugar: row.sugar,
-      saturatedFat: row.saturatedFat,
-      sodiumMg: row.sodiumMg,
-    },
+    per100: per100Of(row),
     portions: portionRows.sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id).map(toPortion),
     source: row.source,
+    staleSince: row.staleSince,
     archivedAt: row.archivedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -133,6 +145,11 @@ export class FoodService {
     return this.get(id);
   }
 
+  /**
+   * Edits a plain food. Dishes that use it as an ingredient are flagged stale when the nutrition
+   * or basis changed (FR-R2); their stored per-100 values are left alone until recalculated. A
+   * rename or a portion change does not touch them.
+   */
   update(id: number, input: FoodInputParsed): Food {
     const existing = this.db.select().from(foods).where(eq(foods.id, id)).get();
     if (!existing) throw new AppError(404, 'NOT_FOUND', 'Food not found');
@@ -142,6 +159,11 @@ export class FoodService {
     this.assertCategory(input.categoryId);
     this.assertNameFree(input.name, input.brand, id);
     const now = new Date().toISOString();
+    const nutritionChanged =
+      existing.basis !== input.basis ||
+      (Object.keys(input.per100) as (keyof typeof input.per100)[]).some(
+        (key) => existing[key] !== input.per100[key],
+      );
     this.db.transaction((tx) => {
       tx.update(foods)
         .set({
@@ -155,6 +177,23 @@ export class FoodService {
         .where(eq(foods.id, id))
         .run();
       this.replacePortions(tx, id, input.portions);
+      if (nutritionChanged) {
+        tx.update(foods)
+          .set({ staleSince: now })
+          .where(
+            and(
+              isNull(foods.staleSince),
+              inArray(
+                foods.id,
+                tx
+                  .select({ id: dishIngredients.dishFoodId })
+                  .from(dishIngredients)
+                  .where(eq(dishIngredients.ingredientFoodId, id)),
+              ),
+            ),
+          )
+          .run();
+      }
     });
     return this.get(id);
   }
@@ -189,28 +228,28 @@ export class FoodService {
     this.db.delete(foods).where(eq(foods.id, id)).run();
   }
 
-  /**
-   * Number of diary entries pointing at the food. Phase 4 adds dish ingredients and meal-template
-   * items.
-   */
+  /** Diary entries, dish ingredient lines and meal-template items pointing at the food (FR-F3). */
   countReferences(id: number): number {
-    const used = this.db
+    const logged = this.db
       .select({ n: count() })
       .from(diaryEntries)
       .where(eq(diaryEntries.foodId, id))
       .get();
-    return used?.n ?? 0;
+    const cooked = this.db
+      .select({ n: count() })
+      .from(dishIngredients)
+      .where(eq(dishIngredients.ingredientFoodId, id))
+      .get();
+    const templated = this.db
+      .select({ n: count() })
+      .from(mealTemplateItems)
+      .where(eq(mealTemplateItems.foodId, id))
+      .get();
+    return (logged?.n ?? 0) + (cooked?.n ?? 0) + (templated?.n ?? 0);
   }
 
-  private replacePortions(tx: Db, foodId: number, input: FoodInputParsed['portions']): void {
-    tx.delete(portions).where(eq(portions.foodId, foodId)).run();
-    if (input.length === 0) return;
-    tx.insert(portions)
-      .values(input.map((p, i) => ({ foodId, label: p.label, amount: p.amount, sortOrder: i })))
-      .run();
-  }
-
-  private assertCategory(categoryId: number | null): void {
+  /** 400 with `path: categoryId` unless the category exists (or none is given). */
+  assertCategory(categoryId: number | null): void {
     if (categoryId === null) return;
     const row = this.db
       .select({ id: categories.id })
@@ -223,7 +262,8 @@ export class FoodService {
       ]);
   }
 
-  private assertNameFree(name: string, brand: string | null, exceptId?: number): void {
+  /** 409 when another food (or dish) already has this (name, brand), case-insensitively. */
+  assertNameFree(name: string, brand: string | null, exceptId?: number): void {
     const clash = this.findByNameAndBrand(name, brand);
     if (clash && clash.id !== exceptId) {
       const where = clash.archivedAt ? ' (archived)' : '';
@@ -237,6 +277,14 @@ export class FoodService {
         },
       );
     }
+  }
+
+  private replacePortions(tx: Db, foodId: number, input: FoodInputParsed['portions']): void {
+    tx.delete(portions).where(eq(portions.foodId, foodId)).run();
+    if (input.length === 0) return;
+    tx.insert(portions)
+      .values(input.map((p, i) => ({ foodId, label: p.label, amount: p.amount, sortOrder: i })))
+      .run();
   }
 }
 

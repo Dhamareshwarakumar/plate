@@ -71,6 +71,12 @@ export const foods = sqliteTable(
       .notNull()
       .default('manual'),
     offCode: text('off_code'),
+    /** Dishes only: the cooked weight the per-100 values are spread over. */
+    cookedWeightG: real('cooked_weight_g'),
+    /** Dishes only: number of servings behind the "1 serving" portion. */
+    servings: integer('servings'),
+    /** Dishes only: set when an ingredient food changed after the last calculation (FR-R2). */
+    staleSince: text('stale_since'),
     archivedAt: text('archived_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
@@ -96,6 +102,58 @@ export const portions = sqliteTable(
     sortOrder: integer('sort_order').notNull(),
   },
   (t) => [index('portions_food_id_idx').on(t.foodId)],
+);
+
+/**
+ * Recipe lines of a dish (FR-R1). Deleting the dish removes its lines; an ingredient food that is
+ * still used here cannot be hard-deleted (no cascade, counted by `FoodService.countReferences`).
+ */
+export const dishIngredients = sqliteTable(
+  'dish_ingredients',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    dishFoodId: integer('dish_food_id')
+      .notNull()
+      .references(() => foods.id, { onDelete: 'cascade' }),
+    ingredientFoodId: integer('ingredient_food_id')
+      .notNull()
+      .references(() => foods.id),
+    /** Raw amount in the ingredient's basis. */
+    amount: real('amount').notNull(),
+    sortOrder: integer('sort_order').notNull(),
+  },
+  (t) => [
+    index('dish_ingredients_dish_food_id_idx').on(t.dishFoodId),
+    index('dish_ingredients_ingredient_food_id_idx').on(t.ingredientFoodId),
+  ],
+);
+
+/** Meal templates (FR-R3): named lists of (food, amount) logged in one tap. */
+export const mealTemplates = sqliteTable('meal_templates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const mealTemplateItems = sqliteTable(
+  'meal_template_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    templateId: integer('template_id')
+      .notNull()
+      .references(() => mealTemplates.id, { onDelete: 'cascade' }),
+    /** No cascade: a food in a template cannot be hard-deleted. */
+    foodId: integer('food_id')
+      .notNull()
+      .references(() => foods.id),
+    amount: real('amount').notNull(),
+    sortOrder: integer('sort_order').notNull(),
+  },
+  (t) => [
+    index('meal_template_items_template_id_idx').on(t.templateId),
+    index('meal_template_items_food_id_idx').on(t.foodId),
+  ],
 );
 
 /** Meal slots (Breakfast, Lunch…). Windows are minutes since midnight, [start, end), may wrap. */
