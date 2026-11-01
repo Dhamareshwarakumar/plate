@@ -1,4 +1,5 @@
 import type { Category, Food } from '@plate/shared';
+import type { InjectOptions } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CategoryService } from '../src/categories/service.js';
 import { createTestApp, login, type TestContext } from './helpers.js';
@@ -24,13 +25,15 @@ beforeEach(async () => {
 });
 afterEach(() => ctx.close());
 
-const api = (method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, payload?: unknown) =>
-  ctx.app.inject({
-    method,
-    url,
-    headers: { cookie },
-    ...(payload === undefined ? {} : { payload }),
-  });
+const api = (
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  url: string,
+  payload?: unknown,
+) => {
+  const options: InjectOptions = { method, url, headers: { cookie } };
+  if (payload !== undefined) options.payload = payload as InjectOptions['payload'];
+  return ctx.app.inject(options);
+};
 
 async function createFood(overrides: Record<string, unknown> = {}): Promise<Food> {
   const res = await api('POST', '/api/foods', { name: 'Banana', per100, ...overrides });

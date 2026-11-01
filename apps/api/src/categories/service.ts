@@ -68,7 +68,7 @@ export class CategoryService {
       .where(eq(categories.id, id))
       .returning()
       .get();
-    return toCategory(row!);
+    return toCategory(row);
   }
 
   setArchived(id: number, archived: boolean): Category {
@@ -79,7 +79,7 @@ export class CategoryService {
       .where(eq(categories.id, id))
       .returning()
       .get();
-    return toCategory(row!);
+    return toCategory(row);
   }
 
   /** Hard delete, only when no food points at the category; otherwise the caller should archive. */
