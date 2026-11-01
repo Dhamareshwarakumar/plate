@@ -97,3 +97,60 @@ export const portions = sqliteTable(
   },
   (t) => [index('portions_food_id_idx').on(t.foodId)],
 );
+
+/** Meal slots (Breakfast, Lunch…). Windows are minutes since midnight, [start, end), may wrap. */
+export const mealSlots = sqliteTable(
+  'meal_slots',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    sortOrder: integer('sort_order').notNull(),
+    windowStartMin: integer('window_start_min').notNull(),
+    windowEndMin: integer('window_end_min').notNull(),
+    archivedAt: text('archived_at'),
+  },
+  (t) => [index('meal_slots_sort_order_idx').on(t.sortOrder)],
+);
+
+/**
+ * Diary entries. The `*_100` columns snapshot the food's per-100 values at logging time (FR-D10);
+ * totals are always derived as `value_100 * quantity / 100`, in SQL and in the UI alike.
+ */
+export const diaryEntries = sqliteTable(
+  'diary_entries',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** `YYYY-MM-DD` in the client's time zone. */
+    day: text('day').notNull(),
+    slotId: integer('slot_id')
+      .notNull()
+      .references(() => mealSlots.id),
+    loggedAt: text('logged_at').notNull(),
+    /** Null for ad-hoc entries. No cascade: a logged food cannot be hard-deleted. */
+    foodId: integer('food_id').references(() => foods.id),
+    nameSnapshot: text('name_snapshot').notNull(),
+    quantity: real('quantity').notNull(),
+    basis: text('basis', { enum: ['g', 'ml'] })
+      .notNull()
+      .default('g'),
+    portionLabel: text('portion_label'),
+    portionCount: real('portion_count'),
+    note: text('note'),
+    kcal100: real('kcal_100').notNull(),
+    protein100: real('protein_100').notNull(),
+    carbs100: real('carbs_100').notNull(),
+    fat100: real('fat_100').notNull(),
+    fiber100: real('fiber_100'),
+    sugar100: real('sugar_100'),
+    saturatedFat100: real('saturated_fat_100'),
+    sodiumMg100: real('sodium_mg_100'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    index('diary_entries_day_idx').on(t.day),
+    index('diary_entries_food_id_idx').on(t.foodId),
+    index('diary_entries_day_slot_idx').on(t.day, t.slotId),
+    index('diary_entries_logged_at_idx').on(t.loggedAt),
+  ],
+);

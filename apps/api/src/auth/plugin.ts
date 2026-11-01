@@ -17,7 +17,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     authService: AuthService;
     sessionStore: SessionStore;
-    /** preHandler that rejects requests without a live session (401 + WWW-Authenticate). */
+    /** Request hook (onRequest) that rejects requests without a live session (401 + WWW-Authenticate). */
     requireSession: (
       request: FastifyRequest,
       reply: FastifyReply,

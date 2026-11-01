@@ -4,6 +4,7 @@ import { SessionStore } from './auth/sessions.js';
 import { CategoryService } from './categories/service.js';
 import { ConfigError, loadConfig } from './config.js';
 import { openDb } from './db/index.js';
+import { MealSlotService } from './mealSlots/service.js';
 import { APP_VERSION } from './version.js';
 
 async function main(): Promise<void> {
@@ -18,9 +19,11 @@ async function main(): Promise<void> {
   const bootstrapResult = await bootstrapAuth.bootstrap(config.initialPassword);
 
   const seededCategories = new CategoryService(opened.db).seedDefaults();
+  const seededMealSlots = new MealSlotService(opened.db).seedDefaults();
 
   const app = await buildApp({ config, db: opened.db, sqlite: opened.sqlite });
   if (seededCategories > 0) app.log.info({ seededCategories }, 'seeded default categories');
+  if (seededMealSlots > 0) app.log.info({ seededMealSlots }, 'seeded default meal slots');
 
   if (bootstrapResult === 'seeded_from_bootstrap') {
     app.log.warn(

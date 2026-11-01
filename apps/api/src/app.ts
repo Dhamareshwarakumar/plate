@@ -13,12 +13,16 @@ import { FailureThrottle } from './auth/throttle.js';
 import { CategoryService } from './categories/service.js';
 import type { AppConfig } from './config.js';
 import type { Db } from './db/index.js';
+import { DiaryService } from './diary/service.js';
 import { errorBody, errorHandler } from './errors.js';
 import { FoodService } from './foods/service.js';
+import { MealSlotService } from './mealSlots/service.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
 import { categoryRoutes } from './routes/categories.js';
+import { diaryRoutes } from './routes/diary.js';
 import { foodRoutes } from './routes/foods.js';
 import { healthRoutes } from './routes/health.js';
+import { mealSlotRoutes } from './routes/mealSlots.js';
 
 export interface BuildAppOptions {
   config: AppConfig;
@@ -95,6 +99,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   );
   const categoryService = new CategoryService(db);
   const foodService = new FoodService(db);
+  const mealSlotService = new MealSlotService(db);
+  const diaryService = new DiaryService(db);
 
   await app.register(
     async (api) => {
@@ -102,10 +108,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       await api.register(publicAuthRoutes, { throttle: passwordThrottle });
 
       await api.register(async (guarded) => {
-        guarded.addHook('preHandler', guarded.requireSession);
+        // onRequest: anonymous requests are refused before any body is parsed or validated.
+        guarded.addHook('onRequest', guarded.requireSession);
         await guarded.register(protectedAuthRoutes, { throttle: passwordThrottle });
         await guarded.register(categoryRoutes, { categories: categoryService });
         await guarded.register(foodRoutes, { foods: foodService, categories: categoryService });
+        await guarded.register(mealSlotRoutes, { mealSlots: mealSlotService });
+        await guarded.register(diaryRoutes, { diary: diaryService });
       });
     },
     { prefix: '/api' },

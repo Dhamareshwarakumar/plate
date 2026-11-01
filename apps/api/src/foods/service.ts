@@ -1,7 +1,7 @@
 import type { Food, FoodInputParsed, FoodListQuery, Portion } from '@plate/shared';
-import { and, asc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/index.js';
-import { categories, foods, portions } from '../db/schema.js';
+import { categories, diaryEntries, foods, portions } from '../db/schema.js';
 import { AppError } from '../errors.js';
 
 type FoodRow = typeof foods.$inferSelect;
@@ -190,11 +190,16 @@ export class FoodService {
   }
 
   /**
-   * Number of diary entries, dish ingredients and meal-template items pointing at the food.
-   * Extended as those tables arrive in later phases.
+   * Number of diary entries pointing at the food. Phase 4 adds dish ingredients and meal-template
+   * items.
    */
-  countReferences(_id: number): number {
-    return 0;
+  countReferences(id: number): number {
+    const used = this.db
+      .select({ n: count() })
+      .from(diaryEntries)
+      .where(eq(diaryEntries.foodId, id))
+      .get();
+    return used?.n ?? 0;
   }
 
   private replacePortions(tx: Db, foodId: number, input: FoodInputParsed['portions']): void {
