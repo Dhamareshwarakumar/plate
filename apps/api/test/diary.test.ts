@@ -103,24 +103,27 @@ const paths = (res: { json: () => { error: { details?: unknown } } }) =>
   (res.json().error.details as { path: string }[]).map((d) => d.path);
 
 describe('auth gate on diary routes', () => {
-  it('denies anonymous access', async () => {
-    for (const url of [
-      `/api/diary/${DAY}`,
-      '/api/diary/days?from=2025-10-13&to=2025-10-19',
-      '/api/diary/recent-foods',
-      '/api/diary/frequent-foods',
-      '/api/diary/export.csv?from=2025-10-13&to=2025-10-19',
-    ]) {
-      const res = await ctx.app.inject({ method: 'GET', url });
-      expect(res.statusCode, url).toBe(401);
+  it('denies anonymous access on every route', async () => {
+    const range = 'from=2025-10-13&to=2025-10-19';
+    const routes: ['GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', string][] = [
+      ['GET', `/api/diary/${DAY}`],
+      ['GET', `/api/diary/days?${range}`],
+      ['GET', '/api/diary/recent-foods'],
+      ['GET', '/api/diary/frequent-foods'],
+      ['GET', `/api/diary/export.csv?${range}`],
+      ['POST', '/api/diary/entries'],
+      ['PATCH', '/api/diary/entries/1'],
+      ['DELETE', '/api/diary/entries/1'],
+      ['POST', '/api/diary/entries/1/duplicate'],
+      ['POST', '/api/diary/copy'],
+    ];
+    for (const [method, url] of routes) {
+      const options: InjectOptions = { method, url };
+      if (method !== 'GET') options.payload = { day: DAY };
+      const res = await ctx.app.inject(options);
+      expect(res.statusCode, `${method} ${url}`).toBe(401);
       expect(res.headers['www-authenticate']).toMatch(/Session/);
     }
-    const post = await ctx.app.inject({
-      method: 'POST',
-      url: '/api/diary/entries',
-      payload: { day: DAY },
-    });
-    expect(post.statusCode).toBe(401);
   });
 });
 
@@ -410,7 +413,7 @@ describe('editing entries', () => {
     expect(cleared.json<DiaryEntry>().note).toBeNull();
   });
 
-  it('rejects an empty patch, an archived slot and unknown entries', async () => {
+  it('rejects an empty patch, a move into an archived slot and unknown entries', async () => {
     const entry = await log({});
     expect((await api('PATCH', `/api/diary/entries/${entry.id}`, {})).statusCode).toBe(400);
 
@@ -421,6 +424,36 @@ describe('editing entries', () => {
     expect(paths(archived)).toEqual(['slotId']);
 
     expect((await api('PATCH', '/api/diary/entries/4242', { quantity: 1 })).statusCode).toBe(404);
+  });
+
+  it('keeps editing an entry that sits in a slot archived after logging', async () => {
+    const snacks = slot('Snacks');
+    const entry = await log({ slotId: snacks.id, loggedAt: at('15:30') });
+    await api('POST', `/api/meal-slots/${snacks.id}/archive`);
+
+    const quantity = await api('PATCH', `/api/diary/entries/${entry.id}`, { quantity: 50 });
+    expect(quantity.statusCode, quantity.body).toBe(200);
+    expect(quantity.json<DiaryEntry>()).toMatchObject({ quantity: 50, slotId: snacks.id });
+
+    // Sending the unchanged (archived) slot id, as the edit sheet does, is not a move.
+    const samePlace = await api('PATCH', `/api/diary/entries/${entry.id}`, {
+      slotId: snacks.id,
+      note: 'still here',
+    });
+    expect(samePlace.statusCode, samePlace.body).toBe(200);
+    expect(samePlace.json<DiaryEntry>()).toMatchObject({ slotId: snacks.id, note: 'still here' });
+
+    const day = await getDay();
+    const last = day.slots[day.slots.length - 1]!;
+    expect(last.slot.id).toBe(snacks.id);
+    expect(last.entries.map((e) => e.id)).toEqual([entry.id]);
+
+    // Moving into a different archived slot is still refused.
+    const dinner = slot('Dinner');
+    await api('POST', `/api/meal-slots/${dinner.id}/archive`);
+    const moved = await api('PATCH', `/api/diary/entries/${entry.id}`, { slotId: dinner.id });
+    expect(moved.statusCode).toBe(400);
+    expect(paths(moved)).toEqual(['slotId']);
   });
 
   it('deletes, then 404s on later edits', async () => {

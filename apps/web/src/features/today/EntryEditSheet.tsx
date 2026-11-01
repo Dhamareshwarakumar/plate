@@ -25,6 +25,7 @@ export interface EntryEditSheetProps {
   /** The entry being edited; kept while closing so the exit animation can play. */
   entry: DiaryEntry | null;
   open: boolean;
+  /** All slots of the day (archived ones included); only active ones and the entry's own are offered. */
   slots: MealSlot[];
   onClose: () => void;
   onDuplicate: (entry: DiaryEntry) => void;
@@ -92,20 +93,18 @@ function EntryEditSheetInner({
   const preview = parsedQuantity === null ? null : entryTotals(entry.per100, parsedQuantity);
   const count = parsePositive(portionCount) ?? 1;
 
-  // The entry's own slot stays selectable even if it has been archived since.
-  const slotOptions = slots.some((s) => s.id === entry.slotId)
-    ? slots
-    : [
-        ...slots,
-        {
-          id: entry.slotId,
-          name: 'Archived meal',
-          sortOrder: 999,
-          windowStartMin: 0,
-          windowEndMin: 0,
-          archivedAt: 'archived',
-        },
-      ];
+  // Active slots are offered; the entry's own slot stays selectable even if it has been archived since.
+  const slotOptions = slots.filter((s) => s.archivedAt === null || s.id === entry.slotId);
+  if (!slotOptions.some((s) => s.id === entry.slotId)) {
+    slotOptions.push({
+      id: entry.slotId,
+      name: 'Archived meal',
+      sortOrder: 999,
+      windowStartMin: 0,
+      windowEndMin: 0,
+      archivedAt: 'archived',
+    });
+  }
 
   const stepCount = (delta: number) => {
     const next = Math.max(0.5, Math.round((count + delta) * 2) / 2);
@@ -120,11 +119,13 @@ function EntryEditSheetInner({
     const note = values.note.trim();
     const body: DiaryEntryPatch = {
       quantity: q,
-      slotId: Number(values.slotId),
       loggedAt: isoAt(values.day, minutes),
       day: values.day,
       note: note === '' ? null : note,
     };
+    // Only an actual move is sent, so an entry may keep sitting in a slot archived since.
+    const slotId = Number(values.slotId);
+    if (slotId !== entry.slotId) body.slotId = slotId;
     if (adHocUnit) {
       body.portionCount = parsePositive(values.portionCount);
     } else if (values.portionLabel) {
@@ -256,7 +257,7 @@ function EntryEditSheetInner({
               >
                 {slotOptions.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {s.archivedAt === null ? s.name : `${s.name} (archived)`}
                   </option>
                 ))}
               </Select>

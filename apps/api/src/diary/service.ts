@@ -194,9 +194,11 @@ export class DiaryService {
    * Logs an entry. Food entries snapshot name/basis/per-100 from the food (archived foods may still
    * be logged); ad-hoc entries store what was sent. A portion label matching one of the food's
    * portions turns `portionCount` into the quantity; otherwise the quantity is taken as given.
+   * The slot must exist but may be archived (the UI only offers active slots; undo of a delete
+   * restores an entry into the slot it came from).
    */
   addEntry(input: DiaryEntryInputParsed): DiaryEntry {
-    this.assertActiveSlot(input.slotId, 'slotId');
+    this.assertSlotExists(input.slotId, 'slotId');
     let snapshot: Snapshot;
     let quantity = input.quantity;
     if (input.foodId !== null) {
@@ -250,11 +252,14 @@ export class DiaryService {
 
   /**
    * Edits quantity/portion/slot/time/day/note. The snapshot never changes, so a quantity edit
-   * recomputes totals from the values captured at logging time (FR-D10).
+   * recomputes totals from the values captured at logging time (FR-D10). Moving to another slot
+   * requires an active one; an entry may stay in a slot that has been archived since.
    */
   patchEntry(id: number, patch: DiaryEntryPatchParsed): DiaryEntry {
     const existing = this.getRow(id);
-    if (patch.slotId !== undefined) this.assertActiveSlot(patch.slotId, 'slotId');
+    if (patch.slotId !== undefined && patch.slotId !== existing.slotId) {
+      this.assertActiveSlot(patch.slotId, 'slotId');
+    }
 
     const portionLabel =
       patch.portionLabel !== undefined ? patch.portionLabel : existing.portionLabel;
@@ -424,7 +429,7 @@ export class DiaryService {
     return row;
   }
 
-  private assertActiveSlot(slotId: number, path: string): void {
+  private assertSlotExists(slotId: number, path: string): { archivedAt: string | null } {
     const slot = this.db
       .select({ archivedAt: mealSlots.archivedAt })
       .from(mealSlots)
@@ -435,6 +440,11 @@ export class DiaryService {
         { path, message: 'Unknown meal slot' },
       ]);
     }
+    return slot;
+  }
+
+  private assertActiveSlot(slotId: number, path: string): void {
+    const slot = this.assertSlotExists(slotId, path);
     if (slot.archivedAt !== null) {
       throw new AppError(400, 'VALIDATION_ERROR', 'This meal slot is archived', [
         { path, message: 'This meal slot is archived' },

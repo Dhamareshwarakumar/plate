@@ -30,10 +30,22 @@ const listSlots = async (includeArchived = false) =>
   (await api('GET', `/api/meal-slots?includeArchived=${includeArchived}`)).json<MealSlot[]>();
 
 describe('meal slots', () => {
-  it('denies anonymous access', async () => {
-    const res = await ctx.app.inject({ method: 'GET', url: '/api/meal-slots' });
-    expect(res.statusCode).toBe(401);
-    expect(res.headers['www-authenticate']).toMatch(/Session/);
+  it('denies anonymous access on every route', async () => {
+    const routes: ['GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', string][] = [
+      ['GET', '/api/meal-slots'],
+      ['POST', '/api/meal-slots'],
+      ['PATCH', '/api/meal-slots/1'],
+      ['POST', '/api/meal-slots/1/archive'],
+      ['POST', '/api/meal-slots/1/unarchive'],
+      ['PUT', '/api/meal-slots/order'],
+    ];
+    for (const [method, url] of routes) {
+      const options: InjectOptions = { method, url };
+      if (method !== 'GET') options.payload = { name: 'Brunch' };
+      const res = await ctx.app.inject(options);
+      expect(res.statusCode, `${method} ${url}`).toBe(401);
+      expect(res.headers['www-authenticate']).toMatch(/Session/);
+    }
   });
 
   it('seeds the defaults once, in order, with their windows', async () => {
@@ -145,11 +157,11 @@ describe('meal slots', () => {
     ).toBe(404);
   });
 
-  it('refuses logging into an archived slot', async () => {
+  it('still accepts a new entry in an archived slot (undo restores where it was) but not an unknown slot', async () => {
     const slots = await listSlots();
     const snacks = slots.find((s) => s.name === 'Snacks')!;
     await api('POST', `/api/meal-slots/${snacks.id}/archive`);
-    const res = await api('POST', '/api/diary/entries', {
+    const entry = {
       day: '2025-10-19',
       slotId: snacks.id,
       loggedAt: '2025-10-19T15:00:00+02:00',
@@ -166,8 +178,13 @@ describe('meal slots', () => {
         saturatedFat: null,
         sodiumMg: null,
       },
-    });
-    expect(res.statusCode).toBe(400);
-    expect((res.json().error.details as { path: string }[])[0]?.path).toBe('slotId');
+    };
+    const res = await api('POST', '/api/diary/entries', entry);
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json<{ slotId: number }>().slotId).toBe(snacks.id);
+
+    const unknown = await api('POST', '/api/diary/entries', { ...entry, slotId: 4242 });
+    expect(unknown.statusCode).toBe(400);
+    expect((unknown.json().error.details as { path: string }[])[0]?.path).toBe('slotId');
   });
 });

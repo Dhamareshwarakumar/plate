@@ -44,6 +44,11 @@ function CopySheetInner({ request, day, slots, onClose }: CopySheetProps) {
   const [targetSlot, setTargetSlot] = useState<string>('same');
   const copy = useCopyDiary();
   const active = slots.filter((s) => s.archivedAt === null);
+  // An archived meal can still be the source ("Copy to another day…" from its menu).
+  const scopeOptions =
+    request?.slotId !== undefined && !active.some((s) => s.id === request.slotId)
+      ? [...active, ...slots.filter((s) => s.id === request.slotId)]
+      : active;
 
   const sourceDay = mode === 'from' ? otherDay : day;
   const destinationDay = mode === 'from' ? day : otherDay;
@@ -127,9 +132,9 @@ function CopySheetInner({ request, day, slots, onClose }: CopySheetProps) {
           {(c) => (
             <Select id={c.id} value={scope} onChange={(e) => setScope(e.target.value)}>
               <option value="all">The whole day</option>
-              {active.map((s) => (
+              {scopeOptions.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} only
+                  {s.archivedAt === null ? `${s.name} only` : `${s.name} only (archived)`}
                 </option>
               ))}
             </Select>

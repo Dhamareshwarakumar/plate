@@ -289,7 +289,7 @@ function TodayView({ day }: { day: string }) {
       <EntryEditSheet
         entry={editEntry}
         open={editOpen}
-        slots={activeSlots}
+        slots={slots}
         onClose={() => setEditOpen(false)}
         onDuplicate={onDuplicate}
         onDelete={onDelete}
