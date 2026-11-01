@@ -26,6 +26,17 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((ms - start) / 86_400_000);
 }
 
+/** The day key `days` calendar days after `day` (negative to go back); zone-free like `daysBetween`. */
+export function shiftDayKey(day: string, days: number): string {
+  const date = new Date(
+    Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, Number(day.slice(8, 10)) + days),
+  );
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 /** `YYYY-MM-DD` of a Date in the caller's local zone (the browser's, or the server's as a fallback). */
 export function localDayKey(date: Date): string {
   const y = date.getFullYear();

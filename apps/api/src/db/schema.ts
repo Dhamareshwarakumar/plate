@@ -229,6 +229,9 @@ export const goals = sqliteTable(
     fatG: real('fat_g').notNull(),
     fiberG: real('fiber_g'),
     waterMl: real('water_ml'),
+    /** Target body weight (FR-W2) and the day it is aimed at; both optional. */
+    goalWeightKg: real('goal_weight_kg'),
+    goalWeightDate: text('goal_weight_date'),
     createdAt: text('created_at').notNull(),
   },
   (t) => [uniqueIndex('goals_effective_from_unique').on(t.effectiveFrom)],
@@ -245,3 +248,31 @@ export const profile = sqliteTable('profile', {
     enum: ['sedentary', 'light', 'moderate', 'active', 'very_active'],
   }).notNull(),
 });
+
+/** Water additions (FR-D9): a day's total is `sum(ml)`; "undo last" deletes the newest row. */
+export const waterEntries = sqliteTable(
+  'water_entries',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** `YYYY-MM-DD` in the client's time zone. */
+    day: text('day').notNull(),
+    ml: integer('ml').notNull(),
+    loggedAt: text('logged_at').notNull(),
+  },
+  (t) => [index('water_entries_day_idx').on(t.day)],
+);
+
+/** Body weight (FR-W1): one row per day; `PUT weights/:day` replaces it. */
+export const weights = sqliteTable(
+  'weights',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** `YYYY-MM-DD` in the client's time zone. */
+    day: text('day').notNull(),
+    kg: real('kg').notNull(),
+    note: text('note'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [uniqueIndex('weights_day_unique').on(t.day)],
+);

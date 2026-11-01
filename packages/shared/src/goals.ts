@@ -3,6 +3,7 @@ import { dayKeySchema } from './days.js';
 import { idSchema, isoDateTimeSchema } from './foods.js';
 import { KCAL_PER_GRAM, type Nutrients } from './nutrition.js';
 import { ACTIVITY_FACTORS, type Activity, type Sex } from './settings.js';
+import { weightKgSchema } from './weight.js';
 
 // ---------- day status (FR-G3) ----------
 
@@ -62,6 +63,9 @@ export const goalInputSchema = z.object({
   ...goalFields,
   fiberG: macroGramsSchema('Fiber').nullable().default(null),
   waterMl: waterMlSchema.nullable().default(null),
+  /** Target body weight shown on the Weight page (FR-W2); optional, with an optional target day. */
+  goalWeightKg: weightKgSchema.nullable().default(null),
+  goalWeightDate: dayKeySchema.nullable().default(null),
 });
 export type GoalInput = z.input<typeof goalInputSchema>;
 export type GoalInputParsed = z.output<typeof goalInputSchema>;
@@ -71,6 +75,8 @@ export const goalSchema = z.object({
   ...goalFields,
   fiberG: macroGramsSchema('Fiber').nullable(),
   waterMl: waterMlSchema.nullable(),
+  goalWeightKg: weightKgSchema.nullable(),
+  goalWeightDate: dayKeySchema.nullable(),
   createdAt: isoDateTimeSchema,
 });
 export type Goal = z.infer<typeof goalSchema>;

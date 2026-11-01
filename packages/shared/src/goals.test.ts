@@ -162,11 +162,20 @@ describe('goalInputSchema', () => {
   const base = { effectiveFrom: '2025-10-01', kcal: 2000, proteinG: 150, carbsG: 220, fatG: 65 };
 
   it('defaults optional targets to null', () => {
-    expect(goalInputSchema.parse(base)).toEqual({ ...base, fiberG: null, waterMl: null });
+    expect(goalInputSchema.parse(base)).toEqual({
+      ...base,
+      fiberG: null,
+      waterMl: null,
+      goalWeightKg: null,
+      goalWeightDate: null,
+    });
     expect(goalInputSchema.parse({ ...base, fiberG: 30, waterMl: 2500 })).toMatchObject({
       fiberG: 30,
       waterMl: 2500,
     });
+    expect(
+      goalInputSchema.parse({ ...base, goalWeightKg: 74, goalWeightDate: '2026-03-01' }),
+    ).toMatchObject({ goalWeightKg: 74, goalWeightDate: '2026-03-01' });
   });
 
   it('enforces the bounds with the offending path', () => {
@@ -178,6 +187,9 @@ describe('goalInputSchema', () => {
     expect(path({ ...base, proteinG: -1 })).toEqual(['proteinG']);
     expect(path({ ...base, fatG: 1001 })).toEqual(['fatG']);
     expect(path({ ...base, waterMl: 20_001 })).toEqual(['waterMl']);
+    expect(path({ ...base, goalWeightKg: 10 })).toEqual(['goalWeightKg']);
+    expect(path({ ...base, goalWeightKg: 74.25 })).toEqual(['goalWeightKg']);
+    expect(path({ ...base, goalWeightDate: '2025-02-30' })).toEqual(['goalWeightDate']);
   });
 });
 

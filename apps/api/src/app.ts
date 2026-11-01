@@ -30,7 +30,11 @@ import { healthRoutes } from './routes/health.js';
 import { mealSlotRoutes } from './routes/mealSlots.js';
 import { mealTemplateRoutes } from './routes/mealTemplates.js';
 import { settingsRoutes } from './routes/settings.js';
+import { waterRoutes } from './routes/water.js';
+import { weightRoutes } from './routes/weights.js';
 import { SettingsService } from './settings/service.js';
+import { WaterService } from './water/service.js';
+import { WeightService } from './weights/service.js';
 
 export interface BuildAppOptions {
   config: AppConfig;
@@ -110,7 +114,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const mealSlotService = new MealSlotService(db);
   const settingsService = new SettingsService(db);
   const goalService = new GoalService(db);
-  const diaryService = new DiaryService(db, { goals: goalService, settings: settingsService });
+  const waterService = new WaterService(db);
+  const weightService = new WeightService(db, goalService);
+  const diaryService = new DiaryService(db, {
+    goals: goalService,
+    settings: settingsService,
+    water: waterService,
+  });
   const dishService = new DishService(db, foodService);
   const mealTemplateService = new MealTemplateService(db, diaryService);
 
@@ -130,7 +140,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         await guarded.register(dishRoutes, { dishes: dishService });
         await guarded.register(mealTemplateRoutes, { mealTemplates: mealTemplateService });
         await guarded.register(settingsRoutes, { settings: settingsService });
-        await guarded.register(goalRoutes, { goals: goalService, settings: settingsService });
+        await guarded.register(goalRoutes, {
+          goals: goalService,
+          settings: settingsService,
+          weights: weightService,
+        });
+        await guarded.register(waterRoutes, { water: waterService });
+        await guarded.register(weightRoutes, { weights: weightService });
       });
     },
     { prefix: '/api' },

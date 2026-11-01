@@ -13,10 +13,12 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { GoalService } from '../goals/service.js';
 import type { SettingsService } from '../settings/service.js';
+import type { WeightService } from '../weights/service.js';
 
 export interface GoalRouteOptions {
   goals: GoalService;
   settings: SettingsService;
+  weights: WeightService;
 }
 
 const idParams = z.object({ id: z.coerce.number().pipe(idSchema) });
@@ -24,7 +26,7 @@ const activeQuery = z.object({ day: dayKeySchema });
 
 export async function goalRoutes(app: FastifyInstance, options: GoalRouteOptions): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
-  const { goals, settings } = options;
+  const { goals, settings, weights } = options;
 
   r.get('/goals', { schema: { response: { 200: z.array(goalSchema) } } }, async () => goals.list());
 
@@ -40,6 +42,7 @@ export async function goalRoutes(app: FastifyInstance, options: GoalRouteOptions
     async (request) => goals.activeFor(request.query.day),
   );
 
+  // The latest logged weight stands in when the body does not name one (FR-G4).
   r.post(
     '/goals/calculate',
     {
@@ -48,7 +51,8 @@ export async function goalRoutes(app: FastifyInstance, options: GoalRouteOptions
         response: { 200: calculatorResultSchema, 400: apiErrorSchema },
       },
     },
-    async (request) => goals.calculate(settings.getProfile(), request.body.weightKg),
+    async (request) =>
+      goals.calculate(settings.getProfile(), request.body.weightKg ?? weights.latest()?.kg),
   );
 
   r.post(

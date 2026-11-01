@@ -22,6 +22,7 @@ import { AppError } from '../errors.js';
 import type { GoalService } from '../goals/service.js';
 import { toMealSlot } from '../mealSlots/service.js';
 import type { SettingsService } from '../settings/service.js';
+import type { WaterService } from '../water/service.js';
 
 type EntryRow = typeof diaryEntries.$inferSelect;
 
@@ -119,10 +120,11 @@ function snapshotColumns(per100: Nutrients) {
   };
 }
 
-/** Services the diary reads from to judge a day (FR-G1, FR-G3). */
+/** Services the diary reads from to judge a day (FR-G1, FR-G3) and to fill in its water (FR-D9). */
 export interface DiaryServiceDeps {
   goals: GoalService;
   settings: SettingsService;
+  water: WaterService;
 }
 
 export class DiaryService {
@@ -197,7 +199,7 @@ export class DiaryService {
         this.deps.settings.get().tolerancePct,
       ),
       remaining: goal ? goalRemaining(goal, totals) : null,
-      water: { ml: 0 },
+      water: this.deps.water.forDay(day),
     };
   }
 

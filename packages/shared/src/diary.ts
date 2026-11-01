@@ -10,6 +10,7 @@ import {
 import { dayStatusSchema, goalRemainingSchema, goalSchema } from './goals.js';
 import { mealSlotSchema } from './mealSlots.js';
 import { nutrientsSchema, scaleNutrients, sumNutrients, type Nutrients } from './nutrition.js';
+import { dayWaterSchema } from './water.js';
 import { optionalTrimmed, trimmed } from './zod-helpers.js';
 
 /**
@@ -138,7 +139,8 @@ export type DiaryDaySlot = z.infer<typeof diaryDaySlotSchema>;
 /**
  * One day of the diary. `goal` is the goal in effect on that day (FR-G1) or null, `status` judges
  * the day's kcal against it with the adherence tolerance (FR-G3) and `remaining` is goal minus
- * totals (null without a goal). `water` is a placeholder that Phase 5 fills in.
+ * totals (null without a goal). `water` is the day's total and additions (FR-D9); it never counts
+ * as logging, so `entryCount` and `status` ignore it.
  */
 export const diaryDaySchema = z.object({
   day: dayKeySchema,
@@ -148,7 +150,7 @@ export const diaryDaySchema = z.object({
   goal: goalSchema.nullable(),
   status: dayStatusSchema,
   remaining: goalRemainingSchema.nullable(),
-  water: z.object({ ml: z.number().nonnegative() }),
+  water: dayWaterSchema,
 });
 export type DiaryDay = z.infer<typeof diaryDaySchema>;
 

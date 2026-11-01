@@ -21,6 +21,8 @@ function toGoal(row: typeof goals.$inferSelect): Goal {
     fatG: row.fatG,
     fiberG: row.fiberG,
     waterMl: row.waterMl,
+    goalWeightKg: row.goalWeightKg,
+    goalWeightDate: row.goalWeightDate,
     createdAt: row.createdAt,
   };
 }
@@ -58,6 +60,8 @@ export class GoalService {
       fatG: input.fatG,
       fiberG: input.fiberG,
       waterMl: input.waterMl,
+      goalWeightKg: input.goalWeightKg,
+      goalWeightDate: input.goalWeightDate,
     };
     const row = this.db
       .insert(goals)

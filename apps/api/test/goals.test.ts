@@ -133,6 +133,17 @@ describe('validation', () => {
     const water = await api('POST', '/api/goals', { ...goalInput, waterMl: 50_000 });
     expect(water.statusCode).toBe(400);
     expect(paths(water)).toEqual(['waterMl']);
+
+    const weight = await api('POST', '/api/goals', { ...goalInput, goalWeightKg: 10 });
+    expect(weight.statusCode).toBe(400);
+    expect(paths(weight)).toEqual(['goalWeightKg']);
+
+    const weightDate = await api('POST', '/api/goals', {
+      ...goalInput,
+      goalWeightDate: '2025-02-30',
+    });
+    expect(weightDate.statusCode).toBe(400);
+    expect(paths(weightDate)).toEqual(['goalWeightDate']);
   });
 
   it('rejects a bad day on the active lookup and a bad weight on calculate', async () => {
@@ -156,7 +167,13 @@ describe('validation', () => {
 describe('goals', () => {
   it('creates a goal with null optional targets and lists newest first', async () => {
     const goal = await createGoal();
-    expect(goal).toMatchObject({ ...goalInput, fiberG: null, waterMl: null });
+    expect(goal).toMatchObject({
+      ...goalInput,
+      fiberG: null,
+      waterMl: null,
+      goalWeightKg: null,
+      goalWeightDate: null,
+    });
     expect(goal.id).toBeGreaterThan(0);
     expect(Date.parse(goal.createdAt)).not.toBeNaN();
 
@@ -165,6 +182,17 @@ describe('goals', () => {
     const list = (await api('GET', '/api/goals')).json<Goal[]>();
     expect(list.map((g) => g.id)).toEqual([later.id, goal.id, earlier.id]);
     expect(list[2]!.fiberG).toBe(30);
+  });
+
+  it('round-trips a goal weight and its target day', async () => {
+    const goal = await createGoal({ goalWeightKg: 74, goalWeightDate: '2026-03-01' });
+    expect(goal).toMatchObject({ goalWeightKg: 74, goalWeightDate: '2026-03-01' });
+    expect(await activeFor(DAY)).toEqual(goal);
+
+    const cleared = await createGoal({ goalWeightKg: 74.5 });
+    expect(cleared.id).toBe(goal.id);
+    expect(cleared.goalWeightKg).toBe(74.5);
+    expect(cleared.goalWeightDate).toBeNull();
   });
 
   it('replaces the goal that starts on the same day instead of adding one', async () => {
@@ -284,11 +312,27 @@ describe('calculator (FR-G4)', () => {
     expect(paths(res)).toEqual(['profile']);
   });
 
-  it('needs a weight until the weight log exists', async () => {
+  it('needs a weight when nothing is logged', async () => {
     expect((await api('PUT', '/api/profile', profile)).statusCode).toBe(200);
     const res = await api('POST', '/api/goals/calculate', {});
     expect(res.statusCode).toBe(400);
     expect(paths(res)).toEqual(['weightKg']);
+  });
+
+  it('uses the latest logged weight when weightKg is omitted', async () => {
+    expect((await api('PUT', '/api/profile', profile)).statusCode).toBe(200);
+    expect((await api('PUT', '/api/weights/2025-10-01', { kg: 90 })).statusCode).toBe(200);
+    expect((await api('PUT', `/api/weights/${DAY}`, { kg: 80 })).statusCode).toBe(200);
+
+    const implicit = await api('POST', '/api/goals/calculate', {});
+    expect(implicit.statusCode, implicit.body).toBe(200);
+    const explicit = await api('POST', '/api/goals/calculate', { weightKg: 80 });
+    expect(implicit.json()).toEqual(explicit.json());
+    // An explicit weight still wins over the log.
+    const heavier = await api('POST', '/api/goals/calculate', { weightKg: 90 });
+    expect(heavier.json<CalculatorResult>().bmr).toBeGreaterThan(
+      implicit.json<CalculatorResult>().bmr,
+    );
   });
 
   it('matches the hand-computed Mifflin-St Jeor numbers', async () => {
