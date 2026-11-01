@@ -46,7 +46,7 @@ export class AuthService {
       );
     }
     assertPasswordPolicy(initialPassword, 'APP_INITIAL_PASSWORD');
-    await this.setPassword(initialPassword);
+    await this.setPassword(initialPassword, { isInitial: true });
     return 'seeded_from_bootstrap';
   }
 
@@ -60,7 +60,7 @@ export class AuthService {
       );
     }
     assertPasswordPolicy(initialPassword, 'APP_INITIAL_PASSWORD');
-    await this.setPassword(initialPassword);
+    await this.setPassword(initialPassword, { isInitial: true });
     return { revokedSessions: this.sessions.revokeAll() };
   }
 
@@ -85,17 +85,28 @@ export class AuthService {
     callerSessionId: string,
   ): Promise<{ changed: true; revokedSessions: number } | { changed: false }> {
     if (!(await this.verify(currentPassword))) return { changed: false };
-    await this.setPassword(newPassword);
+    await this.setPassword(newPassword, { isInitial: false });
     return { changed: true, revokedSessions: this.sessions.revokeAllExcept(callerSessionId) };
   }
 
-  private async setPassword(password: string): Promise<void> {
+  /** True while the stored password is still the bootstrap value; drives the "change it" banner. */
+  isPasswordInitial(): boolean {
+    const row = this.db
+      .select({ passwordIsInitial: auth.passwordIsInitial })
+      .from(auth)
+      .where(eq(auth.id, AUTH_ROW_ID))
+      .get();
+    return row ? row.passwordIsInitial === 1 : false;
+  }
+
+  private async setPassword(password: string, options: { isInitial: boolean }): Promise<void> {
     const passwordHash = await hashPassword(password);
     const updatedAt = new Date().toISOString();
+    const passwordIsInitial = options.isInitial ? 1 : 0;
     this.db
       .insert(auth)
-      .values({ id: AUTH_ROW_ID, passwordHash, updatedAt })
-      .onConflictDoUpdate({ target: auth.id, set: { passwordHash, updatedAt } })
+      .values({ id: AUTH_ROW_ID, passwordHash, passwordIsInitial, updatedAt })
+      .onConflictDoUpdate({ target: auth.id, set: { passwordHash, passwordIsInitial, updatedAt } })
       .run();
   }
 }

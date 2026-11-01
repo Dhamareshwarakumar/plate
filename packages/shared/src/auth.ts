@@ -29,5 +29,7 @@ export const sessionInfoSchema = z.object({
   createdAt: z.string(),
   /** ISO-8601 timestamp after which the session expires if unused. */
   expiresAt: z.string(),
+  /** True while the password is still the one seeded from deployment config (or a reset). */
+  passwordIsInitial: z.boolean(),
 });
 export type SessionInfo = z.infer<typeof sessionInfoSchema>;

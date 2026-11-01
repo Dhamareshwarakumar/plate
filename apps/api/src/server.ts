@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { AuthBootstrapError, AuthService } from './auth/service.js';
 import { SessionStore } from './auth/sessions.js';
+import { CategoryService } from './categories/service.js';
 import { ConfigError, loadConfig } from './config.js';
 import { openDb } from './db/index.js';
 import { APP_VERSION } from './version.js';
@@ -16,7 +17,10 @@ async function main(): Promise<void> {
   );
   const bootstrapResult = await bootstrapAuth.bootstrap(config.initialPassword);
 
+  const seededCategories = new CategoryService(opened.db).seedDefaults();
+
   const app = await buildApp({ config, db: opened.db, sqlite: opened.sqlite });
+  if (seededCategories > 0) app.log.info({ seededCategories }, 'seeded default categories');
 
   if (bootstrapResult === 'seeded_from_bootstrap') {
     app.log.warn(

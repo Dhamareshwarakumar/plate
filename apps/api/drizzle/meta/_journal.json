@@ -8,6 +8,13 @@
       "when": 1793533821809,
       "tag": "0000_auth_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793536089051,
+      "tag": "0001_foods_categories_settings",
+      "breakpoints": true
     }
   ]
 }

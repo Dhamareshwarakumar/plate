@@ -68,6 +68,7 @@ export async function publicAuthRoutes(
         authenticated: true as const,
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
+        passwordIsInitial: app.authService.isPasswordInitial(),
       });
     },
   );
@@ -91,6 +92,7 @@ export async function protectedAuthRoutes(
         authenticated: true as const,
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
+        passwordIsInitial: app.authService.isPasswordInitial(),
       });
     },
   );

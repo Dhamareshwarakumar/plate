@@ -62,7 +62,7 @@ describe('authentication gate', () => {
       payload: { password: TEST_PASSWORD },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ authenticated: true });
+    expect(res.json()).toMatchObject({ authenticated: true, passwordIsInitial: true });
 
     const cookie = res.cookies.find((c) => c.name === 'plate_session');
     expect(cookie).toBeDefined();
@@ -273,6 +273,13 @@ describe('change password', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true, signedOutOtherDevices: 1 });
+
+    const phoneSession = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/auth/session',
+      headers: { cookie: phone },
+    });
+    expect(phoneSession.json().passwordIsInitial).toBe(false);
 
     const phoneStill = await ctx.app.inject({
       method: 'GET',

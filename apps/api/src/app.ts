@@ -10,10 +10,14 @@ import authPlugin from './auth/plugin.js';
 import { AuthService } from './auth/service.js';
 import { SessionStore } from './auth/sessions.js';
 import { FailureThrottle } from './auth/throttle.js';
+import { CategoryService } from './categories/service.js';
 import type { AppConfig } from './config.js';
 import type { Db } from './db/index.js';
 import { errorBody, errorHandler } from './errors.js';
+import { FoodService } from './foods/service.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
+import { categoryRoutes } from './routes/categories.js';
+import { foodRoutes } from './routes/foods.js';
 import { healthRoutes } from './routes/health.js';
 
 export interface BuildAppOptions {
@@ -43,6 +47,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   app.setErrorHandler(errorHandler);
+
+  // CSV uploads arrive as plain text; JSON stays the default for everything else.
+  app.addContentTypeParser(
+    ['text/csv', 'text/plain'],
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      done(null, body);
+    },
+  );
 
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: {
@@ -80,6 +93,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     PASSWORD_THROTTLE.maxFailures,
     PASSWORD_THROTTLE.windowMs,
   );
+  const categoryService = new CategoryService(db);
+  const foodService = new FoodService(db);
 
   await app.register(
     async (api) => {
@@ -89,6 +104,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       await api.register(async (guarded) => {
         guarded.addHook('preHandler', guarded.requireSession);
         await guarded.register(protectedAuthRoutes, { throttle: passwordThrottle });
+        await guarded.register(categoryRoutes, { categories: categoryService });
+        await guarded.register(foodRoutes, { foods: foodService, categories: categoryService });
       });
     },
     { prefix: '/api' },
