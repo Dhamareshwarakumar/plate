@@ -1,7 +1,7 @@
 import { healthResponseSchema } from '@plate/shared';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut, Moon, Sun, SunMoon } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { ChevronRight, FolderCog, LogOut, Moon, Sun, SunMoon } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -25,8 +25,9 @@ export function MorePage() {
       <PageHeader title="More" description="Appearance, security and app details." />
       <div className="grid gap-4 lg:grid-cols-2">
         <AppearanceCard />
-        <AboutCard />
+        <LibraryCard />
         <SecurityCard />
+        <AboutCard />
       </div>
     </>
   );
@@ -45,6 +46,25 @@ function AppearanceCard() {
         onChange={setPreference}
         options={THEME_OPTIONS}
       />
+    </Card>
+  );
+}
+
+function LibraryCard() {
+  return (
+    <Card className="p-0">
+      <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+        <CardTitle>Library</CardTitle>
+        <CardDescription>How your foods are organised.</CardDescription>
+      </div>
+      <Link
+        to="/more/categories"
+        className="hover:bg-surface-2 mt-3 flex items-center gap-3 border-t border-border px-4 py-3.5 transition-colors sm:px-5"
+      >
+        <FolderCog className="text-fg-muted size-5" aria-hidden="true" />
+        <span className="text-fg flex-1 text-sm font-medium">Categories</span>
+        <ChevronRight className="text-fg-faint size-4" aria-hidden="true" />
+      </Link>
     </Card>
   );
 }
