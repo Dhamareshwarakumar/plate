@@ -1,0 +1,5 @@
+# Used only with the optional caddy service in docker-compose.yml.
+{$PLATE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy plate:8080
+}

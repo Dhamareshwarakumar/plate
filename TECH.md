@@ -33,24 +33,24 @@ plate/
 
 ## 2. Stack
 
-| Layer         | Choice                                                              | Why                                                                                                       |
-| ------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Runtime       | Node 22 LTS                                                         | Current LTS; arm64 prebuilt binaries available for every native dependency used.                          |
-| HTTP          | Fastify 5                                                           | Fast, schema-first, small footprint on a Pi; plugins for cookies, rate-limit, static, helmet.             |
-| Validation    | Zod (shared) via `fastify-type-provider-zod`                        | One schema per entity drives API validation, TS types and the UI forms.                                   |
-| DB            | SQLite via `better-sqlite3`, Drizzle ORM + drizzle-kit migrations   | Single file, synchronous and fast, trivial backup, no second container.                                   |
-| Frontend      | React 18, TypeScript, Vite                                          | Standard; Vite builds are fast and produce a static bundle.                                               |
-| Styling       | Tailwind CSS + Radix UI primitives (shadcn/ui pattern)              | Full visual control for a mobile-first design; accessible primitives for dialogs, sheets, menus, tabs.    |
-| Motion        | Framer Motion                                                       | Springs, layout animations, gesture (swipe, drag) support.                                                |
-| Charts        | Recharts                                                            | Composable SVG charts, responsive, good enough for bars/lines/donut; heatmap is hand-built with CSS grid. |
-| Data fetching | TanStack Query                                                      | Caching, optimistic updates (log → ring animates instantly), retries, invalidation.                       |
-| Routing       | React Router 6                                                      | URL-driven screens.                                                                                       |
-| Forms         | react-hook-form + Zod resolver                                      | Shared schemas validate on the client identically to the server.                                          |
-| Dates         | date-fns                                                            | Tree-shakable, works with plain `YYYY-MM-DD` day keys.                                                    |
-| Fuzzy search  | small in-house scorer (normalize, prefix/substring/typo distance)   | Avoids a dependency; the library is a few thousand rows at most and is searched in memory on the client.  |
-| PWA           | `vite-plugin-pwa` (Workbox)                                         | Precache app shell; network-only for `/api`.                                                              |
-| Tests         | Vitest (unit + API integration), Playwright (a few e2e smoke flows) |                                                                                                           |
-| Lint/format   | ESLint + Prettier, strict TS                                        |                                                                                                           |
+| Layer         | Choice                                                                                   | Why                                                                                                                                                                                       |
+| ------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime       | Node 24 LTS                                                                              | Active LTS; arm64 prebuilt binaries exist for both native dependencies (better-sqlite3, argon2). TypeScript is pinned to 5.9 because typescript-eslint does not support TypeScript 7 yet. |
+| HTTP          | Fastify 5                                                                                | Fast, schema-first, small footprint on a Pi; plugins for cookies, rate-limit, static, helmet.                                                                                             |
+| Validation    | Zod (shared) via `fastify-type-provider-zod`                                             | One schema per entity drives API validation, TS types and the UI forms.                                                                                                                   |
+| DB            | SQLite via `better-sqlite3`, Drizzle ORM + drizzle-kit migrations                        | Single file, synchronous and fast, trivial backup, no second container.                                                                                                                   |
+| Frontend      | React 18, TypeScript, Vite                                                               | Standard; Vite builds are fast and produce a static bundle.                                                                                                                               |
+| Styling       | Tailwind CSS + Radix UI primitives (shadcn/ui pattern)                                   | Full visual control for a mobile-first design; accessible primitives for dialogs, sheets, menus, tabs.                                                                                    |
+| Motion        | Framer Motion                                                                            | Springs, layout animations, gesture (swipe, drag) support.                                                                                                                                |
+| Charts        | Recharts                                                                                 | Composable SVG charts, responsive, good enough for bars/lines/donut; heatmap is hand-built with CSS grid.                                                                                 |
+| Data fetching | TanStack Query                                                                           | Caching, optimistic updates (log → ring animates instantly), retries, invalidation.                                                                                                       |
+| Routing       | React Router 7 (library mode)                                                            | URL-driven screens.                                                                                                                                                                       |
+| Forms         | react-hook-form + Zod resolver                                                           | Shared schemas validate on the client identically to the server.                                                                                                                          |
+| Dates         | date-fns                                                                                 | Tree-shakable, works with plain `YYYY-MM-DD` day keys.                                                                                                                                    |
+| Fuzzy search  | small in-house scorer (normalize, prefix/substring/typo distance)                        | Avoids a dependency; the library is a few thousand rows at most and is searched in memory on the client.                                                                                  |
+| PWA           | `vite-plugin-pwa` (Workbox)                                                              | Precache app shell; network-only for `/api`.                                                                                                                                              |
+| Tests         | Vitest (unit, API integration, jsdom component tests); Playwright smoke flows in phase 9 |                                                                                                                                                                                           |
+| Lint/format   | ESLint (typed rules) + Prettier; strict TS with `exactOptionalPropertyTypes`             |                                                                                                                                                                                           |
 
 ## 3. Data model (SQLite, Drizzle)
 
@@ -162,8 +162,8 @@ This section follows the "private by default, authenticate restricted audiences,
 
 - Single app password whose **argon2id hash is stored in the database** (`auth` table, one row). On startup, if no hash exists, the server seeds it from `APP_INITIAL_PASSWORD_FILE` or `APP_INITIAL_PASSWORD` (your `.env` sets this to `password` to begin with). **The server refuses to start if there is neither a stored hash nor a bootstrap value** (fail closed; there is no "no-auth" mode). Once a hash exists the bootstrap value is ignored, so later edits to `.env` do not silently reset the password.
 - Change password: `POST auth/change-password { currentPassword, newPassword }` verifies the current one, stores the new hash and deletes every session except the caller's. New passwords: 8–128 characters. Reset when forgotten: `docker compose exec plate node dist/cli.js reset-password` re-seeds from the bootstrap value and deletes all sessions.
-- Login creates a random 256-bit session id stored in `sessions`; cookie `plate_session` is `HttpOnly; SameSite=Strict; Path=/; Secure` (Secure is automatic when the request arrived over HTTPS or `TRUST_PROXY` says so). Sliding 30-day expiry; logout deletes the row.
-- Rate limit: 5 login attempts per 15 minutes per IP (`@fastify/rate-limit`), same for change-password; general API limit 300 req/min.
+- Login creates a random 256-bit token; the cookie `plate_session` holds the token and the database stores only its SHA-256, so a copied database cannot be replayed. Cookie flags: `HttpOnly; SameSite=Strict; Path=/; Secure` (Secure is automatic when the request arrived over HTTPS or `TRUST_PROXY` says so). Sliding 30-day expiry; logout deletes the row. No separate signing key is needed, so there is nothing to manage besides the password.
+- Brute-force protection: an in-memory failure throttle per client IP: 5 wrong passwords in 15 minutes block login and change-password with a 429 and `Retry-After`; correct passwords never count and clear the counter, so signing in on several devices in a row is fine. The general API limit is 300 req/min per IP (`@fastify/rate-limit`).
 - CSRF: `SameSite=Strict` plus an `Origin`/`Sec-Fetch-Site` check on mutating requests; the API only accepts JSON bodies (no form posts).
 - Every `/api` route except `auth/login` and `health` runs the session preHandler. The static shell is served without auth (it contains no data), and the SPA redirects to `/login` when `auth/session` returns 401.
 
@@ -192,7 +192,7 @@ PWA installation (service worker, home-screen app) and the `Secure` cookie flag 
 
 ### 8.1 Image
 
-Multi-stage Dockerfile: `node:22-bookworm-slim` builder (pnpm install, build shared → api → web, prune to production deps) → runtime stage copies `apps/api/dist`, `apps/web/dist`, `node_modules` (with the arm64 `better-sqlite3` binary). Built for `linux/arm64` and `linux/amd64` with `docker buildx`; also buildable directly on the Pi with `docker compose build`.
+Multi-stage Dockerfile: `node:24-bookworm-slim` builder (pnpm install, build shared → api → web, prune to production deps) → runtime stage copies `apps/api/dist`, `apps/web/dist`, `node_modules` (with the arm64 `better-sqlite3` binary). Built for `linux/arm64` and `linux/amd64` with `docker buildx`; also buildable directly on the Pi with `docker compose build`.
 
 ### 8.2 Compose
 
@@ -216,7 +216,7 @@ services:
     healthcheck: { test: ['CMD', 'node', 'healthcheck.js'], interval: 30s, timeout: 5s, retries: 3 }
 ```
 
-`.env.example` ships with `APP_INITIAL_PASSWORD=password` as you asked; change the password from Settings → Security after the first login. The session-signing material is generated on first start and stored in `/data/session.key` (mode 600) so sessions survive restarts without you managing another secret.
+`.env.example` ships with `APP_INITIAL_PASSWORD=password` as you asked; change the password from Settings → Security after the first login. Sessions survive restarts because they live in the database; there is no second secret to manage.
 
 ### 8.3 Operations
 

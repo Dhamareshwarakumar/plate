@@ -1,0 +1,62 @@
+# Plate on a Raspberry Pi (or any Docker host).
+#   cp .env.example .env     # then edit
+#   docker compose up -d --build
+services:
+  plate:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: plate:latest
+    container_name: plate
+    restart: unless-stopped
+    ports:
+      # Default: reachable only from the Pi itself (127.0.0.1). To reach it from other devices,
+      # either put a reverse proxy with HTTPS in front (see the caddy service below) or set
+      # PLATE_BIND=0.0.0.0 in .env, knowing that every device able to reach the Pi can then see
+      # the login page over plain HTTP.
+      - '${PLATE_BIND:-127.0.0.1}:${PLATE_PORT:-8080}:8080'
+    environment:
+      # Used only on the very first start (or by `reset-password`); afterwards the password lives
+      # in the database and is changed from Settings → Security.
+      APP_INITIAL_PASSWORD: ${APP_INITIAL_PASSWORD:?set APP_INITIAL_PASSWORD in .env}
+      # Set to "true" when a reverse proxy terminates TLS in front of Plate (Caddy, nginx, Traefik).
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ['CMD', 'node', '/app/healthcheck.mjs']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Optional HTTPS front door. Uncomment, set PLATE_DOMAIN in .env, point the DNS name at your
+  # static IP and forward ports 80/443 to the Pi; Caddy obtains and renews the certificate.
+  # Then set TRUST_PROXY=true above and remove the `ports:` mapping on `plate` (Caddy reaches it
+  # over the compose network; nothing else needs to be published).
+  #
+  # caddy:
+  #   image: caddy:2
+  #   container_name: plate-caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   environment:
+  #     PLATE_DOMAIN: ${PLATE_DOMAIN:?set PLATE_DOMAIN in .env}
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy-data:/data
+  #     - caddy-config:/config
+  #   depends_on:
+  #     - plate
+  #
+# volumes:
+#   caddy-data:
+#   caddy-config:
