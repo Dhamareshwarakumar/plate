@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { InitialPasswordBanner } from '@/features/auth/InitialPasswordBanner';
+import { SaveAsMealSheet } from '@/features/meals/SaveAsMealSheet';
 import { ApiClientError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { formatDayLabel, isoAt, nowMinutes, shiftDay, todayKey } from '@/lib/dates';
@@ -63,12 +64,17 @@ function TodayView({ day }: { day: string }) {
   const [copyRequest, setCopyRequest] = useState<CopyRequest | null>(null);
   const [clearTarget, setClearTarget] = useState<DiaryDaySlot | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [saveAsMeal, setSaveAsMeal] = useState<DiaryDaySlot | null>(null);
+  const [saveAsMealOpen, setSaveAsMealOpen] = useState(false);
 
-  // The log sheet is URL state (`?log=new|<foodId>&slot=<id>`): Back closes it and deep links open it.
+  // The log sheet is URL state (`?log=new|<foodId>|t<templateId>&slot=<id>`): Back closes it and
+  // deep links open it.
   const logParam = searchParams.get('log');
   const slotParam = searchParams.get('slot');
   const logOpen = logParam !== null;
   const logFoodId = logParam !== null && /^\d+$/.test(logParam) ? Number(logParam) : undefined;
+  const templateMatch = logParam === null ? null : /^t(\d+)$/.exec(logParam);
+  const logTemplateId = templateMatch ? Number(templateMatch[1]) : undefined;
   const openLog = (options: { slotId?: number } = {}) => {
     const next = new URLSearchParams();
     next.set('log', 'new');
@@ -236,6 +242,10 @@ function TodayView({ day }: { day: string }) {
                 onCopyFromYesterday={(slotId) => copyFromYesterday(slotId)}
                 onCopyFrom={(slotId) => setCopyRequest({ mode: 'from', slotId })}
                 onCopyTo={(slotId) => setCopyRequest({ mode: 'to', slotId })}
+                onSaveAsTemplate={(section) => {
+                  setSaveAsMeal(section);
+                  setSaveAsMealOpen(true);
+                }}
                 onClear={setClearTarget}
               />
             ))
@@ -281,6 +291,7 @@ function TodayView({ day }: { day: string }) {
         goalKcal={data?.goal?.kcal}
         initialSlotId={slotParam ? Number(slotParam) : undefined}
         initialFoodId={logFoodId}
+        initialTemplateId={logTemplateId}
         onCreateFood={(name) =>
           void navigate(
             `/foods/new?name=${encodeURIComponent(name)}&returnTo=${encodeURIComponent(`/today/${day}`)}`,
@@ -302,6 +313,13 @@ function TodayView({ day }: { day: string }) {
         day={day}
         slots={slots}
         onClose={() => setCopyRequest(null)}
+      />
+
+      <SaveAsMealSheet
+        section={saveAsMeal}
+        open={saveAsMealOpen}
+        day={day}
+        onClose={() => setSaveAsMealOpen(false)}
       />
 
       <ConfirmDialog

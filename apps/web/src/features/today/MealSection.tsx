@@ -1,5 +1,12 @@
 import type { DiaryDaySlot, DiaryEntry } from '@plate/shared';
-import { CalendarArrowDown, CalendarArrowUp, Eraser, History, Plus } from 'lucide-react';
+import {
+  BookmarkPlus,
+  CalendarArrowDown,
+  CalendarArrowUp,
+  Eraser,
+  History,
+  Plus,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Menu, MenuItem, MenuSeparator } from '@/components/ui/menu';
@@ -17,6 +24,7 @@ export interface MealSectionProps {
   onCopyFromYesterday: (slotId: number) => void;
   onCopyFrom: (slotId: number) => void;
   onCopyTo: (slotId: number) => void;
+  onSaveAsTemplate: (section: DiaryDaySlot) => void;
   onClear: (section: DiaryDaySlot) => void;
 }
 
@@ -30,11 +38,14 @@ export function MealSection({
   onCopyFromYesterday,
   onCopyFrom,
   onCopyTo,
+  onSaveAsTemplate,
   onClear,
 }: MealSectionProps) {
   const { slot, entries, totals } = section;
   const archived = slot.archivedAt !== null;
   const empty = entries.length === 0;
+  // Templates hold library foods only; a meal of quick entries has nothing to save (FR-R3).
+  const hasLibraryEntries = entries.some((e) => e.foodId !== null);
 
   return (
     <section
@@ -79,6 +90,13 @@ export function MealSection({
           ) : null}
           <MenuItem icon={<CalendarArrowUp />} onSelect={() => onCopyTo(slot.id)} disabled={empty}>
             Copy to another day…
+          </MenuItem>
+          <MenuItem
+            icon={<BookmarkPlus />}
+            onSelect={() => onSaveAsTemplate(section)}
+            disabled={!hasLibraryEntries}
+          >
+            Save as meal template…
           </MenuItem>
           <MenuSeparator />
           <MenuItem

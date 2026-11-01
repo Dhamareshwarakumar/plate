@@ -1,9 +1,11 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RequireAuth } from '@/features/auth/RequireAuth';
+import { DishEditorPage } from '@/features/dishes/DishEditorPage';
 import { FoodEditorPage } from '@/features/foods/FoodEditorPage';
 import { FoodsPage } from '@/features/foods/FoodsPage';
 import { InsightsPage } from '@/features/insights/InsightsPage';
+import { MealTemplateEditorPage } from '@/features/meals/MealTemplateEditorPage';
 import { CategoriesPage } from '@/features/settings/CategoriesPage';
 import { MealSlotsPage } from '@/features/settings/MealSlotsPage';
 import { MorePage } from '@/features/settings/MorePage';
@@ -28,6 +30,12 @@ export const router = createBrowserRouter([
             element: <FoodsPage />,
             children: [
               { path: 'new', element: <FoodEditorPage /> },
+              { path: 'dishes', element: <Navigate to="/foods?tab=dishes" replace /> },
+              { path: 'dishes/new', element: <DishEditorPage /> },
+              { path: 'dishes/:id', element: <DishEditorPage /> },
+              { path: 'meals', element: <Navigate to="/foods?tab=meals" replace /> },
+              { path: 'meals/new', element: <MealTemplateEditorPage /> },
+              { path: 'meals/:id', element: <MealTemplateEditorPage /> },
               { path: ':id', element: <FoodEditorPage /> },
             ],
           },

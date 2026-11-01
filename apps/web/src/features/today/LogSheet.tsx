@@ -6,6 +6,7 @@ import {
   type DiaryEntryInput,
   type Food,
   type MealSlot,
+  type MealTemplate,
 } from '@plate/shared';
 import { Check, Search, X } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -17,6 +18,7 @@ import { Select } from '@/components/ui/select';
 import { Sheet } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/spinner';
 import { useCreateFood, useFoods } from '@/features/foods/api';
+import { useLogMealTemplate, useMealTemplates } from '@/features/meals/api';
 import { ApiClientError } from '@/lib/api';
 import { formatDayLabel, isoAt, nowMinutes } from '@/lib/dates';
 import { AdHocStep } from './AdHocStep';
@@ -28,8 +30,10 @@ import {
   parsePositive,
   type AdHocFormValues,
   type QuantityFormValues,
+  type TemplateLogFormValues,
 } from './log-form-schemas';
 import { QuantityStep } from './QuantityStep';
+import { TemplateStep } from './TemplateStep';
 
 export interface LogSheetProps {
   open: boolean;
@@ -44,6 +48,8 @@ export interface LogSheetProps {
   initialSlotId?: number | undefined;
   /** Opens straight at the quantity step for this food (`?log=<id>` after creating it). */
   initialFoodId?: number | undefined;
+  /** Opens straight at the review step of this meal template (`?log=t<id>`). */
+  initialTemplateId?: number | undefined;
   /** Where "Create as new food" goes. */
   onCreateFood: (name: string) => void;
 }
@@ -51,6 +57,7 @@ export interface LogSheetProps {
 type Step =
   | { kind: 'pick' }
   | { kind: 'quantity'; food: Food }
+  | { kind: 'template'; template: MealTemplate }
   | { kind: 'adhoc'; name: string }
   | { kind: 'loading' };
 
@@ -79,10 +86,13 @@ function LogSheetInner({
   goalKcal,
   initialSlotId,
   initialFoodId,
+  initialTemplateId,
   onCreateFood,
 }: LogSheetProps) {
   const foods = useFoods();
+  const templates = useMealTemplates({ enabled: initialTemplateId !== undefined });
   const addEntry = useAddEntry();
+  const logTemplate = useLogMealTemplate();
   const createFood = useCreateFood();
   const [step, setStep] = useState<Step | null>(null);
   const [query, setQuery] = useState('');
@@ -119,15 +129,25 @@ function LogSheetInner({
 
   const initialFood =
     initialFoodId === undefined ? undefined : foods.data?.find((f) => f.id === initialFoodId);
+  const initialTemplate =
+    initialTemplateId === undefined
+      ? undefined
+      : templates.data?.find((t) => t.id === initialTemplateId);
   const effectiveStep: Step =
     step ??
-    (initialFoodId === undefined
-      ? { kind: 'pick' }
-      : initialFood
-        ? { kind: 'quantity', food: initialFood }
-        : foods.isPending
+    (initialTemplateId !== undefined
+      ? initialTemplate
+        ? { kind: 'template', template: initialTemplate }
+        : templates.isPending
           ? { kind: 'loading' }
-          : { kind: 'pick' });
+          : { kind: 'pick' }
+      : initialFoodId === undefined
+        ? { kind: 'pick' }
+        : initialFood
+          ? { kind: 'quantity', food: initialFood }
+          : foods.isPending
+            ? { kind: 'loading' }
+            : { kind: 'pick' });
 
   const finish = () => {
     setDone(true);
@@ -171,6 +191,28 @@ function LogSheetInner({
       setStep({ kind: 'pick' });
       return;
     }
+    finish();
+  };
+
+  const submitTemplate = (template: MealTemplate, values: TemplateLogFormValues) => {
+    const amounts = template.items.map(
+      (item, index) => parsePositive(values.amounts[index] ?? '') ?? item.amount,
+    );
+    const chosenSlot = Number(values.slotId);
+    const minutes = timeStringToMinutes(values.time) ?? nowMinutes();
+    logTemplate.mutate({
+      template,
+      amounts,
+      input: {
+        day,
+        slotId: chosenSlot,
+        loggedAt: isoAt(day, minutes),
+        overrides: amounts.flatMap((amount, index) =>
+          amount === template.items[index]?.amount ? [] : [{ index, amount }],
+        ),
+      },
+    });
+    setSlotId(chosenSlot);
     finish();
   };
 
@@ -258,13 +300,19 @@ function LogSheetInner({
           description: `${current.food.brand ? `${current.food.brand} · ` : ''}${roundNutrient('kcal', current.food.per100.kcal)} kcal per 100 ${current.food.basis}`,
           onBack: () => setStep({ kind: 'pick' }),
         }
-      : current.kind === 'adhoc'
+      : current.kind === 'template'
         ? {
-            title: 'Quick entry',
-            description: `Logged to ${formatDayLabel(day)} without a library food.`,
+            title: current.template.name,
+            description: `Meal template · ${current.template.items.length} ${current.template.items.length === 1 ? 'item' : 'items'}, amounts editable`,
             onBack: () => setStep({ kind: 'pick' }),
           }
-        : { title: 'Log food', description: formatDayLabel(day), onBack: undefined };
+        : current.kind === 'adhoc'
+          ? {
+              title: 'Quick entry',
+              description: `Logged to ${formatDayLabel(day)} without a library food.`,
+              onBack: () => setStep({ kind: 'pick' }),
+            }
+          : { title: 'Log food', description: formatDayLabel(day), onBack: undefined };
 
   const footer =
     current.kind === 'quantity' ? (
@@ -292,6 +340,10 @@ function LogSheetInner({
           Log
         </Button>
       </>
+    ) : current.kind === 'template' ? (
+      <Button type="submit" form={FORM_ID} disabled={done} className="min-w-28">
+        Log {current.template.items.length} {current.template.items.length === 1 ? 'item' : 'items'}
+      </Button>
     ) : current.kind === 'adhoc' ? (
       <Button
         type="submit"
@@ -381,6 +433,7 @@ function LogSheetInner({
         <FoodPicker
           query={query}
           onPick={(food) => setStep({ kind: 'quantity', food })}
+          onPickTemplate={(template) => setStep({ kind: 'template', template })}
           onCreate={onCreateFood}
           onAdHoc={() => setStep({ kind: 'adhoc', name: query.trim() })}
         />
@@ -395,6 +448,18 @@ function LogSheetInner({
           dayKcal={dayKcal}
           goalKcal={goalKcal}
           onSubmit={(values) => submitQuantity(current.food, values)}
+        />
+      ) : current.kind === 'template' ? (
+        <TemplateStep
+          key={current.template.id}
+          formId={FORM_ID}
+          template={current.template}
+          day={day}
+          slots={activeSlots}
+          initialSlotId={effectiveSlotId}
+          dayKcal={dayKcal}
+          goalKcal={goalKcal}
+          onSubmit={(values) => submitTemplate(current.template, values)}
         />
       ) : (
         <AdHocStep

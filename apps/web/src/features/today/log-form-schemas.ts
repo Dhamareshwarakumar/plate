@@ -69,6 +69,14 @@ export const entryEditFormSchema = quantityFormSchema.extend({
 });
 export type EntryEditFormValues = z.infer<typeof entryEditFormSchema>;
 
+/** Review list of a meal template: one editable amount per item, plus meal and time. */
+export const templateLogFormSchema = z.object({
+  amounts: z.array(positiveString('Amount', QUANTITY_MAX)),
+  slotId: slotString,
+  time: timeString,
+});
+export type TemplateLogFormValues = z.infer<typeof templateLogFormSchema>;
+
 export const adHocFormSchema = z
   .object({
     name: z

@@ -1,37 +1,60 @@
-import { roundNutrient, type Food } from '@plate/shared';
+import { roundNutrient, type Food, type MealTemplate } from '@plate/shared';
 import { Apple, PenLine, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Chip, Tag } from '@/components/ui/chip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { useCategories, useFoods } from '@/features/foods/api';
+import { useMealTemplates } from '@/features/meals/api';
 import { cn } from '@/lib/cn';
+import { formatKcal } from '@/lib/format';
 import { normalize, searchItems } from '@/lib/search';
 import { useFrequentFoods, useRecentFoods } from './api';
 
-type Shelf = 'recent' | 'frequent' | 'all';
+type Shelf = 'recent' | 'frequent' | 'dishes' | 'meals' | 'all';
 const TINY_LIBRARY = 20;
 const NO_FOODS: Food[] = [];
+const NO_TEMPLATES: MealTemplate[] = [];
 
-interface FoodPickerProps {
+export interface FoodPickerProps {
   query: string;
   onPick: (food: Food) => void;
-  onCreate: (name: string) => void;
-  onAdHoc: () => void;
+  /** "Create “x” as a new food" row for searches with no exact match; hidden when omitted. */
+  onCreate?: ((name: string) => void) | undefined;
+  /** "Quick ad-hoc entry" row; hidden when omitted. */
+  onAdHoc?: (() => void) | undefined;
+  /** Shows the Meals shelf (and templates in search results); picking one hands it back. */
+  onPickTemplate?: ((template: MealTemplate) => void) | undefined;
+  /** Narrows the library, e.g. no dishes when picking dish ingredients. */
+  filter?: ((food: Food) => boolean) | undefined;
 }
 
 /**
- * Step 1 of the log flow: Recent | Frequent | All shelves, instant typo-tolerant search over the
- * whole library, and the two escape hatches (create as new food, quick ad-hoc entry).
+ * Step 1 of the log flow and the picker of the recipe editors: Recent | Frequent | Dishes | Meals |
+ * All shelves, instant typo-tolerant search over the whole library, and the two escape hatches
+ * (create as new food, quick ad-hoc entry) when the caller offers them.
  */
-export function FoodPicker({ query, onPick, onCreate, onAdHoc }: FoodPickerProps) {
+export function FoodPicker({
+  query,
+  onPick,
+  onCreate,
+  onAdHoc,
+  onPickTemplate,
+  filter,
+}: FoodPickerProps) {
   const foods = useFoods();
   const categories = useCategories({ includeArchived: true });
   const recent = useRecentFoods();
   const frequent = useFrequentFoods();
+  const templatesEnabled = onPickTemplate !== undefined;
+  const templatesQuery = useMealTemplates({ enabled: templatesEnabled });
   const [shelfChoice, setShelfChoice] = useState<Shelf | null>(null);
 
-  const library = foods.data ?? NO_FOODS;
+  const library = useMemo(() => {
+    const all = foods.data ?? NO_FOODS;
+    return filter ? all.filter(filter) : all;
+  }, [foods.data, filter]);
+  const templates = templatesEnabled ? (templatesQuery.data ?? NO_TEMPLATES) : NO_TEMPLATES;
   const byId = useMemo(() => new Map(library.map((f) => [f.id, f])), [library]);
   const categoryName = useMemo(
     () => new Map((categories.data ?? []).map((c) => [c.id, c.name])),
@@ -46,6 +69,7 @@ export function FoodPicker({ query, onPick, onCreate, onAdHoc }: FoodPickerProps
     () => (frequent.data ?? []).map((u) => byId.get(u.foodId)).filter((f): f is Food => !!f),
     [frequent.data, byId],
   );
+  const dishes = useMemo(() => library.filter((f) => f.kind === 'dish'), [library]);
 
   const defaultShelf: Shelf =
     library.length <= TINY_LIBRARY
@@ -66,8 +90,18 @@ export function FoodPicker({ query, onPick, onCreate, onAdHoc }: FoodPickerProps
     }
     if (shelf === 'recent') return recentFoods;
     if (shelf === 'frequent') return frequentFoods;
+    if (shelf === 'dishes') return dishes;
+    if (shelf === 'meals') return NO_FOODS;
     return library;
-  }, [searching, library, query, shelf, recentFoods, frequentFoods]);
+  }, [searching, library, query, shelf, recentFoods, frequentFoods, dishes]);
+
+  const templateResults = useMemo(() => {
+    if (!templatesEnabled) return NO_TEMPLATES;
+    if (searching) {
+      return searchItems(templates, query, (t) => ({ primary: t.name })).map((m) => m.item);
+    }
+    return shelf === 'meals' ? templates : NO_TEMPLATES;
+  }, [templatesEnabled, searching, templates, query, shelf]);
 
   const exactMatch = useMemo(() => {
     if (!searching) return true;
@@ -78,8 +112,23 @@ export function FoodPicker({ query, onPick, onCreate, onAdHoc }: FoodPickerProps
   const shelves: { value: Shelf; label: string; count: number }[] = [
     { value: 'recent', label: 'Recent', count: recentFoods.length },
     { value: 'frequent', label: 'Frequent', count: frequentFoods.length },
+    { value: 'dishes', label: 'Dishes', count: dishes.length },
+    ...(templatesEnabled
+      ? [{ value: 'meals' as const, label: 'Meals', count: templates.length }]
+      : []),
     { value: 'all', label: 'All', count: library.length },
   ];
+
+  const emptyShelfText =
+    shelf === 'recent'
+      ? 'Nothing logged recently.'
+      : shelf === 'frequent'
+        ? 'Nothing logged in the last 60 days.'
+        : shelf === 'dishes'
+          ? 'No dishes yet. Build one under Foods → Dishes.'
+          : shelf === 'meals'
+            ? 'No meal templates yet. Save a logged meal from its ⋯ menu.'
+            : 'Nothing here yet.';
 
   return (
     <div className="flex flex-col gap-3">
@@ -112,15 +161,43 @@ export function FoodPicker({ query, onPick, onCreate, onAdHoc }: FoodPickerProps
           retrying={foods.isFetching}
           className="py-8"
         />
-      ) : library.length === 0 && !searching ? (
+      ) : library.length === 0 && !searching && templates.length === 0 ? (
         <EmptyState
           icon={Apple}
           title="Your library is empty"
-          description="Search above to create your first food, or log a quick ad-hoc entry."
+          description={
+            onAdHoc
+              ? 'Search above to create your first food, or log a quick ad-hoc entry.'
+              : 'Add foods under Foods first, then pick them here.'
+          }
           className="py-8"
         />
       ) : (
         <ul className="divide-border -mx-2 divide-y">
+          {templateResults.map((template) => (
+            <li key={`t${template.id}`}>
+              <button
+                type="button"
+                onClick={() => onPickTemplate?.(template)}
+                className="hover:bg-surface-2 focus-visible:bg-surface-2 flex w-full items-center gap-3 rounded-control px-2 py-2.5 text-left outline-none"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="text-fg truncate font-medium">{template.name}</span>
+                    <Tag className="bg-accent-soft text-accent shrink-0">Meal</Tag>
+                  </span>
+                  <span className="text-fg-muted mt-0.5 block truncate text-xs">
+                    {template.items.length} {template.items.length === 1 ? 'item' : 'items'} ·{' '}
+                    {template.items.map((i) => i.name).join(', ')}
+                  </span>
+                </span>
+                <span className="text-fg tabular shrink-0 text-right text-sm font-semibold">
+                  {formatKcal(template.totals.kcal)}
+                  <span className="text-fg-faint text-xs font-normal"> kcal</span>
+                </span>
+              </button>
+            </li>
+          ))}
           {results.map((food) => (
             <li key={food.id}>
               <button
@@ -131,6 +208,7 @@ export function FoodPicker({ query, onPick, onCreate, onAdHoc }: FoodPickerProps
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="text-fg truncate font-medium">{food.name}</span>
+                    {food.kind === 'dish' ? <Tag className="shrink-0">Dish</Tag> : null}
                     {food.categoryId !== null && categoryName.get(food.categoryId) ? (
                       <Tag className="shrink-0">{categoryName.get(food.categoryId)}</Tag>
                     ) : null}
@@ -149,19 +227,15 @@ export function FoodPicker({ query, onPick, onCreate, onAdHoc }: FoodPickerProps
               </button>
             </li>
           ))}
-          {searching && results.length === 0 ? (
+          {searching && results.length === 0 && templateResults.length === 0 ? (
             <li className="text-fg-muted px-2 py-6 text-center text-sm">
               No foods match “{query.trim()}”.
             </li>
           ) : null}
-          {!searching && results.length === 0 ? (
-            <li className="text-fg-muted px-2 py-6 text-center text-sm">
-              {shelf === 'recent'
-                ? 'Nothing logged recently.'
-                : 'Nothing logged in the last 60 days.'}
-            </li>
+          {!searching && results.length === 0 && templateResults.length === 0 ? (
+            <li className="text-fg-muted px-2 py-6 text-center text-sm">{emptyShelfText}</li>
           ) : null}
-          {searching && !exactMatch ? (
+          {searching && !exactMatch && onCreate ? (
             <li>
               <ActionRow
                 icon={<Plus className="size-4" />}
@@ -175,14 +249,16 @@ export function FoodPicker({ query, onPick, onCreate, onAdHoc }: FoodPickerProps
               />
             </li>
           ) : null}
-          <li>
-            <ActionRow
-              icon={<PenLine className="size-4" />}
-              onClick={onAdHoc}
-              label="Quick ad-hoc entry"
-              hint="Name and calories only, no library food"
-            />
-          </li>
+          {onAdHoc ? (
+            <li>
+              <ActionRow
+                icon={<PenLine className="size-4" />}
+                onClick={onAdHoc}
+                label="Quick ad-hoc entry"
+                hint="Name and calories only, no library food"
+              />
+            </li>
+          ) : null}
         </ul>
       )}
     </div>
