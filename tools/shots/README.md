@@ -34,3 +34,12 @@ node tools/shots/phase4-recipes.mjs    # Dishes/Meals tabs, dish editor (ingredi
 `phase4-recipes.mjs` seeds the recipe ingredients when missing, deletes every meal template, clears
 today's entries and frees the dish name "Dal" (renaming and archiving an old one that history still
 references). It edits and restores the "Red lentils" kcal to show the stale banner.
+
+```sh
+node tools/shots/phase5-water-weight.mjs  # Weight empty state, Today water card (+250/+500, custom sheet, undo), Weight page 1M/All, log sheet with the "replaces" notice, edit sheet, swipe-to-delete, delete + undo, goal editor weight group, More goal card, desktop
+```
+
+`phase5-water-weight.mjs` deletes every weigh-in, today's water and all goals first (for the empty
+states), then seeds ~45 days of weigh-ins ending today (a gentle downward trend with four skipped
+days), the Phase 3 goal with a 74 kg goal weight, and five diary entries for today. It leaves the
+seeded weights and goal in the dev database.

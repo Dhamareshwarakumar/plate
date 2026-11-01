@@ -73,7 +73,8 @@ diary_entries     id, day, slot_id→meal_slots, logged_at, food_id→foods (nul
                   created_at, updated_at
 water_entries     id, day, ml, logged_at
 weights           id, day (unique), kg, note, created_at, updated_at
-goals             id, effective_from (unique), kcal, protein_g, carbs_g, fat_g, fiber_g, water_ml, created_at
+goals             id, effective_from (unique), kcal, protein_g, carbs_g, fat_g, fiber_g, water_ml,
+                  goal_weight_kg, goal_weight_date, created_at
 profile           id=1, sex, birth_date, height_cm, activity_level
 settings          key (pk), value_json          -- tolerance_pct, week_start, off_enabled_override…
 auth              id=1, password_hash (argon2id), updated_at
@@ -115,8 +116,8 @@ All routes under `/api`, JSON, Zod-validated request and response, session cooki
 | Dishes         | `POST dishes` · `GET/PUT dishes/:id` (ingredients + cooked weight + servings; recomputes) · `POST dishes/:id/recalculate` (list/archive/delete via `foods`)                                                                                                                                                     |
 | Meal templates | `GET/POST meal-templates` · `GET/PUT/DELETE meal-templates/:id` · `POST meal-templates/:id/log { day, slotId, loggedAt?, overrides[] }` · `POST meal-templates/from-meal { day, slotId, name }`                                                                                                                 |
 | Diary          | `GET diary/:day` → entries grouped by slot, totals, goal, status, water · `POST diary/entries` · `PATCH/DELETE diary/entries/:id` · `POST diary/entries/:id/duplicate` · `POST diary/copy { fromDay, toDay, slotId? }` · `GET diary/recent-foods` · `GET diary/frequent-foods` · `GET diary/export.csv?from&to` |
-| Water          | `POST water { day, ml }` · `DELETE water/:id`                                                                                                                                                                                                                                                                   |
-| Weights        | `GET weights?from&to` · `PUT weights/:day` · `DELETE weights/:day`                                                                                                                                                                                                                                              |
+| Water          | `POST water { day, ml }` → entry · `DELETE water/:id` (undo last)                                                                                                                                                                                                                                               |
+| Weights        | `GET weights?from&to` · `GET weights/stats` · `PUT weights/:day` (replace) · `DELETE weights/:day`                                                                                                                                                                                                              |
 | Goals          | `GET goals` · `GET goals/active?day` · `POST goals` · `DELETE goals/:id` · `POST goals/calculate`                                                                                                                                                                                                               |
 | Insights       | `GET insights/daily?from&to` (one row per day: totals, goal, status) · `GET insights/top-foods?from&to` · `GET insights/by-slot?from&to` · `GET insights/weight?from&to` (entries + MA)                                                                                                                         |
 | Config         | `GET/PUT settings` · `GET/POST/PATCH meal-slots` · `PUT meal-slots/order` · same for `categories` · `GET/PUT profile`                                                                                                                                                                                           |
