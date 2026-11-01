@@ -1,0 +1,53 @@
+import { buildApp } from './app.js';
+import { AuthBootstrapError, AuthService } from './auth/service.js';
+import { SessionStore } from './auth/sessions.js';
+import { ConfigError, loadConfig } from './config.js';
+import { openDb } from './db/index.js';
+import { APP_VERSION } from './version.js';
+
+async function main(): Promise<void> {
+  const config = loadConfig();
+  const opened = openDb({ path: config.databasePath, migrationsDir: config.migrationsDir });
+
+  // Bootstrap before listening: the server never accepts a request without a password in place.
+  const bootstrapAuth = new AuthService(
+    opened.db,
+    new SessionStore(opened.db, config.sessionTtlMs),
+  );
+  const bootstrapResult = await bootstrapAuth.bootstrap(config.initialPassword);
+
+  const app = await buildApp({ config, db: opened.db, sqlite: opened.sqlite });
+
+  if (bootstrapResult === 'seeded_from_bootstrap') {
+    app.log.warn(
+      'App password seeded from APP_INITIAL_PASSWORD. Change it in Settings → Security after signing in.',
+    );
+  }
+
+  const purged = new SessionStore(opened.db, config.sessionTtlMs).purgeExpired();
+  if (purged > 0) app.log.info({ purged }, 'removed expired sessions');
+
+  const shutdown = async (signal: string): Promise<void> => {
+    app.log.info({ signal }, 'shutting down');
+    await app.close();
+    opened.close();
+    process.exit(0);
+  };
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+
+  await app.listen({ host: config.host, port: config.port });
+  app.log.info(
+    { host: config.host, port: config.port, database: config.databasePath, version: APP_VERSION },
+    'plate api ready',
+  );
+}
+
+main().catch((err: unknown) => {
+  if (err instanceof ConfigError || err instanceof AuthBootstrapError) {
+    console.error(`\n${err.name}: ${err.message}\n`);
+    process.exit(1);
+  }
+  console.error(err);
+  process.exit(1);
+});
