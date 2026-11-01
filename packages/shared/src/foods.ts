@@ -96,6 +96,8 @@ export const foodSchema = z.object({
   per100: nutrientsPer100Schema,
   portions: z.array(portionSchema),
   source: foodSourceSchema,
+  /** Dishes only: set when an ingredient changed after the last calculation (FR-R2). Null for foods. */
+  staleSince: isoDateTimeSchema.nullable(),
   archivedAt: isoDateTimeSchema.nullable(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
