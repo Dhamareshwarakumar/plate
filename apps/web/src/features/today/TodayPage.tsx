@@ -32,6 +32,7 @@ import { LogSheet } from './LogSheet';
 import { MealSection } from './MealSection';
 import { MiniCalendar } from './MiniCalendar';
 import { SummaryCard, SummaryCardSkeleton } from './SummaryCard';
+import { WaterCard, WaterCardSkeleton } from './WaterCard';
 
 const UNDO_MS = 6000;
 const SWIPE_THRESHOLD = 72;
@@ -179,6 +180,18 @@ function TodayView({ day }: { day: string }) {
               className={cn(dayQuery.isPlaceholderData && 'opacity-60 transition-opacity')}
             />
           ) : null}
+          {/* Desktop: the water card sits under the summary (DESIGN §2.2); phones get it after the meals. */}
+          {dayQuery.isPending ? (
+            <WaterCardSkeleton className="hidden lg:block" />
+          ) : data ? (
+            <WaterCard
+              day={data}
+              className={cn(
+                'hidden lg:block',
+                dayQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+              )}
+            />
+          ) : null}
         </aside>
 
         <motion.section
@@ -250,6 +263,7 @@ function TodayView({ day }: { day: string }) {
               />
             ))
           ) : null}
+          {data && !dayQuery.isError ? <WaterCard day={data} className="lg:hidden" /> : null}
           {!empty && data ? (
             <div className="flex flex-wrap justify-center gap-2 pt-1">
               <Button

@@ -22,6 +22,9 @@ import {
   type MealSlot,
   type MealSlotInput,
   type Nutrients,
+  type WaterEntry,
+  type WaterEntryInput,
+  waterEntrySchema,
 } from '@plate/shared';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -382,6 +385,83 @@ export function useCopyDiary() {
       queryClient.setQueryData(diaryKeys.day(result.day.day), result.day);
       void queryClient.invalidateQueries({ queryKey: diaryKeys.all });
     },
+  });
+}
+
+// ---------- water (FR-D9) ----------
+
+function withWater(day: DiaryDay, entries: WaterEntry[]): DiaryDay {
+  return { ...day, water: { ml: entries.reduce((sum, e) => sum + e.ml, 0), entries } };
+}
+
+/** Optimistic: the card and the summary chip move at once; the server entry replaces the temp one. */
+export function useAddWater() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: WaterEntryInput) =>
+      apiRequest('/water', { method: 'POST', body: input, schema: waterEntrySchema }),
+    onMutate: async (input) => {
+      const key = diaryKeys.day(input.day);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<DiaryDay>(key);
+      const tempId = -Date.now();
+      if (previous) {
+        const temp: WaterEntry = {
+          id: tempId,
+          day: input.day,
+          ml: input.ml,
+          loggedAt: new Date().toISOString(),
+        };
+        queryClient.setQueryData(key, withWater(previous, [...previous.water.entries, temp]));
+      }
+      return { previous, key, tempId };
+    },
+    onError: (err, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(context.key, context.previous);
+      toast.error(describeError(err, 'Could not add water. Try again.'));
+    },
+    onSuccess: (entry, _input, context) => {
+      queryClient.setQueryData<DiaryDay>(context.key, (current) =>
+        current
+          ? withWater(
+              current,
+              current.water.entries.map((e) => (e.id === context.tempId ? entry : e)),
+            )
+          : current,
+      );
+    },
+    onSettled: (_entry, _err, input) =>
+      void queryClient.invalidateQueries({ queryKey: diaryKeys.day(input.day) }),
+  });
+}
+
+/** "Undo last": removes one addition (the newest, as chosen by the card). */
+export function useRemoveWater() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (entry: WaterEntry) =>
+      apiRequest(`/water/${entry.id}`, { method: 'DELETE', schema: okResponseSchema }),
+    onMutate: async (entry) => {
+      const key = diaryKeys.day(entry.day);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<DiaryDay>(key);
+      if (previous) {
+        queryClient.setQueryData(
+          key,
+          withWater(
+            previous,
+            previous.water.entries.filter((e) => e.id !== entry.id),
+          ),
+        );
+      }
+      return { previous, key };
+    },
+    onError: (err, _entry, context) => {
+      if (context?.previous) queryClient.setQueryData(context.key, context.previous);
+      toast.error(describeError(err, 'Could not undo that. Try again.'));
+    },
+    onSettled: (_ok, _err, entry) =>
+      void queryClient.invalidateQueries({ queryKey: diaryKeys.day(entry.day) }),
   });
 }
 

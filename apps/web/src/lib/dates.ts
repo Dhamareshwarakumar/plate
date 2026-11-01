@@ -68,6 +68,18 @@ export function formatDayLong(day: string): string {
   return format(parseDayKey(day), 'EEEE, d MMMM yyyy');
 }
 
+/** "19 Oct 2025" */
+export function formatDayWithYear(day: string): string {
+  return format(parseDayKey(day), 'd MMM yyyy');
+}
+
+/** "19 Oct" within the current year, "19 Oct 2024" otherwise. */
+export function formatDayShort(day: string, today = todayKey()): string {
+  return day.slice(0, 4) === today.slice(0, 4)
+    ? format(parseDayKey(day), 'd MMM')
+    : formatDayWithYear(day);
+}
+
 /** "Oct 2025" */
 export function formatMonthLabel(day: string): string {
   return format(parseDayKey(day), 'MMM yyyy');

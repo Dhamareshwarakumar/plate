@@ -7,6 +7,8 @@ import {
   KCAL_PER_GRAM,
   macroTargetsFromPreset,
   MACRO_PRESETS,
+  WEIGHT_KG_MAX,
+  WEIGHT_KG_MIN,
   type Goal,
   type GoalInput,
   type MacroPreset,
@@ -74,6 +76,19 @@ export const goalFormSchema = z.object({
     required: false,
     unit: 'ml',
   }),
+  goalWeightKg: numberString({
+    label: 'Goal weight',
+    min: WEIGHT_KG_MIN,
+    max: WEIGHT_KG_MAX,
+    required: false,
+    unit: 'kg',
+  }).refine((raw) => {
+    const n = parseDecimal(raw);
+    return n === null || Number.isNaN(n) || Math.abs(n * 10 - Math.round(n * 10)) < 1e-9;
+  }, 'Use at most one decimal'),
+  goalWeightDate: z
+    .string()
+    .refine((raw) => raw === '' || isValidDayKey(raw), 'Enter a valid date'),
 });
 export type GoalFormValues = z.infer<typeof goalFormSchema>;
 
@@ -94,6 +109,8 @@ export function emptyGoalForm(today: string): GoalFormValues {
     fatG: '',
     fiberG: '',
     waterMl: '',
+    goalWeightKg: '',
+    goalWeightDate: '',
   };
 }
 
@@ -109,6 +126,8 @@ export function fromGoal(goal: Goal, effectiveFrom: string): GoalFormValues {
     fatG: fmt(goal.fatG),
     fiberG: fmt(goal.fiberG),
     waterMl: fmt(goal.waterMl),
+    goalWeightKg: fmt(goal.goalWeightKg),
+    goalWeightDate: goal.goalWeightDate ?? '',
   };
 }
 
@@ -127,6 +146,8 @@ export function toGoalInput(values: GoalFormValues): GoalInput {
     fatG: num(values.fatG),
     fiberG: optionalNum(values.fiberG),
     waterMl: optionalNum(values.waterMl),
+    goalWeightKg: optionalNum(values.goalWeightKg),
+    goalWeightDate: values.goalWeightDate === '' ? null : values.goalWeightDate,
   };
 }
 

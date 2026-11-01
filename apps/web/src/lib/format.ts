@@ -22,3 +22,20 @@ export function formatPortion(label: string, count: number | null): string {
   const rounded = Math.round(count * 100) / 100;
   return `${rounded.toLocaleString(undefined, { maximumFractionDigits: 2 })} × ${label}`;
 }
+
+/** Millilitres as litres: "1.25", "0.5", "2" (unit added by the caller). */
+export function formatLitres(ml: number): string {
+  return (Math.round(ml / 10) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/** "78.4" — body weight always shows one decimal, like a scale. */
+export function formatKg(kg: number): string {
+  return kg.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+/** "+0.6" / "−0.6" (real minus sign) / "0.0" */
+export function formatSignedKg(delta: number): string {
+  const rounded = Math.round(delta * 10) / 10;
+  if (rounded === 0) return formatKg(0);
+  return `${rounded > 0 ? '+' : '\u2212'}${formatKg(Math.abs(rounded))}`;
+}

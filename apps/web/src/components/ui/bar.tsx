@@ -15,6 +15,8 @@ export interface BarProps {
   format?: (n: number) => string;
   /** Stacks the label above the numbers (for narrow columns) instead of one row. */
   compact?: boolean;
+  /** Set false when the surrounding card already states the label and numbers (track only). */
+  showLabel?: boolean;
   className?: string;
 }
 
@@ -41,6 +43,7 @@ export function Bar({
   unit = 'g',
   format = formatGrams,
   compact = false,
+  showLabel = true,
   className,
 }: BarProps) {
   const c = COLORS[color];
@@ -57,26 +60,33 @@ export function Bar({
       aria-valuetext={`${format(value)} of ${format(max)} ${unit} ${label.toLowerCase()}${over ? ', over' : ''}`}
       className={cn('min-w-0', className)}
     >
+      {showLabel ? (
+        <div
+          className={cn(
+            'flex text-xs',
+            compact ? 'flex-col gap-y-0.5' : 'items-baseline justify-between gap-x-2',
+          )}
+        >
+          <span className="text-fg-muted flex items-center gap-1.5 font-medium">
+            <span className={cn('size-2 shrink-0 rounded-full', c.fill)} aria-hidden="true" />
+            {label}
+          </span>
+          <span
+            className={cn('tabular', over ? 'text-over-fg font-semibold' : 'text-fg font-medium')}
+          >
+            {format(value)}
+            <span className={cn('font-normal', over ? 'text-over-fg/80' : 'text-fg-faint')}>
+              /{format(max)} {unit}
+            </span>
+          </span>
+        </div>
+      ) : null}
       <div
         className={cn(
-          'flex text-xs',
-          compact ? 'flex-col gap-y-0.5' : 'items-baseline justify-between gap-x-2',
+          'bg-surface-3 flex h-1.5 overflow-hidden rounded-full',
+          showLabel && 'mt-1.5',
         )}
       >
-        <span className="text-fg-muted flex items-center gap-1.5 font-medium">
-          <span className={cn('size-2 shrink-0 rounded-full', c.fill)} aria-hidden="true" />
-          {label}
-        </span>
-        <span
-          className={cn('tabular', over ? 'text-over-fg font-semibold' : 'text-fg font-medium')}
-        >
-          {format(value)}
-          <span className={cn('font-normal', over ? 'text-over-fg/80' : 'text-fg-faint')}>
-            /{format(max)} {unit}
-          </span>
-        </span>
-      </div>
-      <div className="bg-surface-3 mt-1.5 flex h-1.5 overflow-hidden rounded-full">
         <motion.span
           className={cn('h-full', c.fill)}
           initial={false}

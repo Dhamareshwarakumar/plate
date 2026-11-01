@@ -1,5 +1,5 @@
 import { macroPercentOfKcal, type Goal } from '@plate/shared';
-import { ChevronDown, Pencil, Target, Trash2 } from 'lucide-react';
+import { ChevronDown, Pencil, Scale, Target, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { ApiClientError } from '@/lib/api';
 import { cn } from '@/lib/cn';
-import { formatDayLabel, todayKey } from '@/lib/dates';
-import { formatGrams, formatKcal } from '@/lib/format';
+import { formatDayLabel, formatDayWithYear, todayKey } from '@/lib/dates';
+import { formatGrams, formatKcal, formatKg } from '@/lib/format';
 import { activeGoalFor, useDeleteGoal, useGoals } from './api';
 
 interface GoalCardProps {
@@ -179,6 +179,16 @@ function ActiveGoal({
                 {(goal.waterMl / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} L
               </span>
             </>
+          ) : null}
+        </p>
+      ) : null}
+      {goal.goalWeightKg !== null ? (
+        <p className="text-fg-muted mt-3 flex items-center gap-1.5 text-sm">
+          <Scale className="text-fg-faint size-4" aria-hidden="true" />
+          Goal weight{' '}
+          <span className="text-fg tabular font-medium">{formatKg(goal.goalWeightKg)} kg</span>
+          {goal.goalWeightDate !== null ? (
+            <span className="text-fg-muted">· by {formatDayWithYear(goal.goalWeightDate)}</span>
           ) : null}
         </p>
       ) : null}

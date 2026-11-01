@@ -2,6 +2,7 @@ import { goalSchema, okResponseSchema, type Goal, type GoalInput } from '@plate/
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { diaryKeys } from '@/features/today/api';
+import { weightKeys } from '@/features/weight/api';
 import { apiRequest } from '@/lib/api';
 
 export const goalKeys = {
@@ -30,6 +31,8 @@ function useInvalidateGoals() {
     void queryClient.invalidateQueries({ queryKey: goalKeys.all });
     // Every day view embeds the goal in effect, its status and what is left.
     void queryClient.invalidateQueries({ queryKey: diaryKeys.all });
+    // The goal weight feeds the Weight page's remaining kg and ETA.
+    void queryClient.invalidateQueries({ queryKey: weightKeys.stats });
   };
 }
 

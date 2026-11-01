@@ -41,6 +41,8 @@ type CalculatorFormValues = z.infer<typeof calculatorFormSchema>;
 interface CalculatorPanelProps {
   /** Saved profile to prefill the inline fields from. */
   profile: Profile | null;
+  /** Prefills the weight field; the latest logged weight once the log exists (FR-G4). */
+  defaultWeightKg?: number | undefined;
   /** A suggestion chip was tapped. */
   onPickKcal: (kcal: number) => void;
   /** The inline profile fields currently form a valid profile (or not). Called on every change. */
@@ -59,10 +61,18 @@ const SUGGESTIONS: { key: keyof CalculatorResult['suggestions']; label: string }
  * updates per keystroke and the four suggestions are tappable chips. Nothing is applied until the
  * user taps one, and the goal is only saved by the sheet's Save button.
  */
-export function CalculatorPanel({ profile, onPickKcal, onProfileChange }: CalculatorPanelProps) {
+export function CalculatorPanel({
+  profile,
+  defaultWeightKg,
+  onPickKcal,
+  onProfileChange,
+}: CalculatorPanelProps) {
   const form = useForm<CalculatorFormValues>({
     resolver: zodResolver(calculatorFormSchema),
-    defaultValues: { ...fromProfile(profile), weightKg: '' },
+    defaultValues: {
+      ...fromProfile(profile),
+      weightKg: defaultWeightKg === undefined ? '' : String(defaultWeightKg),
+    },
     mode: 'onChange',
   });
   const cautionId = useId();

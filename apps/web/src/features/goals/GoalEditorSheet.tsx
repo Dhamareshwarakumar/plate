@@ -12,6 +12,7 @@ import { NumberField, parseDecimal } from '@/components/ui/number-field';
 import { Sheet } from '@/components/ui/sheet';
 import { useProfile, useSaveProfile } from '@/features/settings/api';
 import { sameProfile } from '@/features/settings/profile-form-schema';
+import { useWeightStats } from '@/features/weight/api';
 import { ApiClientError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { todayKey } from '@/lib/dates';
@@ -54,6 +55,7 @@ export function GoalEditorSheet(props: GoalEditorSheetProps) {
 
 function GoalEditorSheetInner({ open, onClose, goal }: GoalEditorSheetProps) {
   const profile = useProfile();
+  const weightStats = useWeightStats();
   const createGoal = useCreateGoal();
   const saveProfile = useSaveProfile();
   const today = todayKey();
@@ -187,6 +189,7 @@ function GoalEditorSheetInner({ open, onClose, goal }: GoalEditorSheetProps) {
         {calcOpen ? (
           <CalculatorPanel
             profile={profile.data ?? null}
+            defaultWeightKg={weightStats.data?.latest?.kg}
             onPickKcal={pickKcal}
             onProfileChange={(p) => {
               calcProfile.current = p;
@@ -265,6 +268,37 @@ function GoalEditorSheetInner({ open, onClose, goal }: GoalEditorSheetProps) {
             )}
           </Field>
         </div>
+
+        <fieldset className="border-border rounded-card flex flex-col gap-3 border p-4">
+          <legend className="text-fg px-1 text-sm font-medium">Weight goal</legend>
+          <p className="text-fg-muted -mt-1 text-xs">
+            Optional · shown on the Weight page with your remaining kg and an ETA.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Goal weight" error={errors.goalWeightKg?.message}>
+              {(c) => (
+                <NumberField
+                  id={c.id}
+                  suffix="kg"
+                  aria-describedby={c['aria-describedby']}
+                  invalid={c.invalid}
+                  {...form.register('goalWeightKg')}
+                />
+              )}
+            </Field>
+            <Field label="Target date" error={errors.goalWeightDate?.message}>
+              {(c) => (
+                <Input
+                  id={c.id}
+                  type="date"
+                  aria-describedby={c['aria-describedby']}
+                  invalid={c.invalid}
+                  {...form.register('goalWeightDate')}
+                />
+              )}
+            </Field>
+          </div>
+        </fieldset>
 
         <Field
           label="Applies from"

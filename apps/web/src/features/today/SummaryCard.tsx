@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useGoals } from '@/features/goals/api';
 import { cn } from '@/lib/cn';
 import { formatDayLabel } from '@/lib/dates';
-import { formatGrams, formatKcal } from '@/lib/format';
+import { formatGrams, formatKcal, formatLitres } from '@/lib/format';
 
 interface SummaryCardProps {
   day: DiaryDay;
@@ -125,10 +125,6 @@ function TargetChip({ dot, label, value }: { dot: string; label: string; value: 
       <span className="text-fg tabular">{value}</span>
     </li>
   );
-}
-
-function formatLitres(ml: number): string {
-  return (Math.round(ml / 10) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 /** The pre-goal card: eaten kcal, the P/C/F split and a link to set a goal. */
