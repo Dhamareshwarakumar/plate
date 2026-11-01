@@ -1,26 +1,12 @@
 import { z } from 'zod';
 import { nutrientsPer100Schema } from './nutrition.js';
+import { optionalTrimmed, trimmed } from './zod-helpers.js';
 
 export const FOOD_NAME_MAX = 120;
 export const FOOD_BRAND_MAX = 80;
 export const PORTION_LABEL_MAX = 60;
 export const PORTIONS_MAX = 20;
 export const CATEGORY_NAME_MAX = 40;
-
-const trimmed = (max: number, label: string) =>
-  z
-    .string()
-    .trim()
-    .min(1, `${label} is required`)
-    .max(max, `${label} must be at most ${max} characters`);
-
-const optionalTrimmed = (max: number, label: string) =>
-  z
-    .string()
-    .trim()
-    .max(max, `${label} must be at most ${max} characters`)
-    .transform((v) => (v.length === 0 ? null : v))
-    .nullable();
 
 export const idSchema = z.number().int().positive();
 export const isoDateTimeSchema = z.string();

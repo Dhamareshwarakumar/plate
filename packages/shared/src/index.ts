@@ -1,4 +1,7 @@
 export * from './api.js';
 export * from './auth.js';
+export * from './diary.js';
 export * from './foods.js';
+export * from './mealSlots.js';
 export * from './nutrition.js';
+export * from './zod-helpers.js';

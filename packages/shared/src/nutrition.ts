@@ -44,6 +44,21 @@ export const nutrientsPer100Schema = z.object({
 });
 export type NutrientsPer100 = z.infer<typeof nutrientsPer100Schema>;
 
+/**
+ * Nutrient values without physical bounds: entry and day totals, and the per-unit snapshot of an
+ * ad-hoc diary entry (where "100" stands for one labelled unit, not 100 g).
+ */
+export const nutrientsSchema = z.object({
+  kcal: z.number().min(0),
+  protein: z.number().min(0),
+  carbs: z.number().min(0),
+  fat: z.number().min(0),
+  fiber: z.number().min(0).nullable(),
+  sugar: z.number().min(0).nullable(),
+  saturatedFat: z.number().min(0).nullable(),
+  sodiumMg: z.number().min(0).nullable(),
+}) satisfies z.ZodType<Nutrients>;
+
 export const KCAL_PER_GRAM = { protein: 4, carbs: 4, fat: 9 } as const;
 
 /** Scales per-100 values to an absolute quantity (grams or millilitres). Optional nutrients stay null. */
