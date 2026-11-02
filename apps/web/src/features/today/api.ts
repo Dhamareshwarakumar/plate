@@ -154,7 +154,11 @@ export function insertEntry(day: DiaryDay, entry: DiaryEntry, tolerancePct?: num
   if (!day.slots.some((s) => s.slot.id === entry.slotId)) return day;
   return withEntries(
     day,
-    (slotId, entries) => (slotId === entry.slotId ? [...entries, entry] : entries),
+    // A refetch that raced the mutation may already hold this entry: replace, never duplicate.
+    (slotId, entries) =>
+      slotId === entry.slotId
+        ? [...entries.filter((e) => e.id !== entry.id), entry]
+        : entries.filter((e) => e.id !== entry.id),
     tolerancePct,
   );
 }
