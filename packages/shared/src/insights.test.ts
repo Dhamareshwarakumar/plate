@@ -142,6 +142,16 @@ describe('summarize', () => {
     expect(s.onTargetStreak).toEqual({ current: 0, best: 1 });
   });
 
+  it('takes streaks from the wider window when one is given', () => {
+    const window = Array.from({ length: 20 }, (_, i) =>
+      row(shiftDayKey(TODAY, i - 19), 'on_target', 1900),
+    );
+    const s = summarize(daily.slice(0, 2), TODAY, window);
+    expect(s.daysInRange).toBe(2);
+    expect(s.loggingStreak).toEqual({ current: 20, best: 20 });
+    expect(s.onTargetStreak).toEqual({ current: 20, best: 20 });
+  });
+
   it('counts only the days that have happened as elapsed', () => {
     expect(summarize(daily, day(2)).daysElapsed).toBe(3);
     expect(summarize(daily, '2025-01-01').daysElapsed).toBe(0);

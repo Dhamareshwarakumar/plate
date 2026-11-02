@@ -186,8 +186,16 @@ export function computeStreaks(
 const average = (values: readonly number[]): number | null =>
   values.length === 0 ? null : values.reduce((a, b) => a + b, 0) / values.length;
 
-/** The FR-I1 numbers for a range of daily aggregates (see `insightsSummarySchema` for the rules). */
-export function summarize(daily: readonly DailyAggregate[], today: string): InsightsSummary {
+/**
+ * The FR-I1 numbers for a range of daily aggregates (see `insightsSummarySchema` for the rules).
+ * Streaks are a "now" statistic (DESIGN §5 shows a 12-day streak on a week view), so they are
+ * computed from `streakDaily`, normally a trailing window ending today, rather than the range.
+ */
+export function summarize(
+  daily: readonly DailyAggregate[],
+  today: string,
+  streakDaily: readonly DailyAggregate[] = daily,
+): InsightsSummary {
   const logged = daily.filter((d) => d.entryCount > 0);
   const withGoal = logged.filter((d) => d.goalKcal !== null);
   const daysOnTarget = daily.filter((d) => d.status === 'on_target').length;
@@ -202,8 +210,8 @@ export function summarize(daily: readonly DailyAggregate[], today: string): Insi
     avgProtein: average(logged.map((d) => d.totals.protein)),
     avgCarbs: average(logged.map((d) => d.totals.carbs)),
     avgFat: average(logged.map((d) => d.totals.fat)),
-    loggingStreak: computeStreaks(daily, today, isLoggedStatus),
-    onTargetStreak: computeStreaks(daily, today, isOnTargetStatus),
+    loggingStreak: computeStreaks(streakDaily, today, isLoggedStatus),
+    onTargetStreak: computeStreaks(streakDaily, today, isOnTargetStatus),
   };
 }
 

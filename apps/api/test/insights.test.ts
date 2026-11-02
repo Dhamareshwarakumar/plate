@@ -313,9 +313,16 @@ describe('summary (FR-I1)', () => {
     const midway = await getJson<InsightsSummary>(`/api/insights/summary?${RANGE}&today=${day(6)}`);
     expect(midway.daysElapsed).toBe(7);
     expect(midway.loggingStreak).toEqual({ current: 3, best: 3 });
+
+    // A one-week range still reports the streak that runs back past its start.
+    const lastWeek = await getJson<InsightsSummary>(
+      `/api/insights/summary?from=${day(11)}&to=${day(12)}&today=${day(12)}`,
+    );
+    expect(lastWeek.daysLogged).toBe(2);
+    expect(lastWeek.loggingStreak).toEqual({ current: 2, best: 6 });
   });
 
-  it('is nulls and zeros for a range without entries', async () => {
+  it('is nulls and zeros for a range without entries, with the streaks still about today', async () => {
     await seedFortnight();
     const s = await getJson<InsightsSummary>(
       `/api/insights/summary?from=2025-11-01&to=2025-11-07&today=${TODAY}`,
@@ -331,9 +338,13 @@ describe('summary (FR-I1)', () => {
       avgProtein: null,
       avgCarbs: null,
       avgFat: null,
-      loggingStreak: { current: 0, best: 0 },
-      onTargetStreak: { current: 0, best: 0 },
+      // Streaks are computed over the two years ending today, not the range (D100).
+      loggingStreak: { current: 2, best: 6 },
+      onTargetStreak: { current: 2, best: 2 },
     });
+    // Far in the future nothing connects to today any more.
+    const later = await getJson<InsightsSummary>(`/api/insights/summary?${RANGE}&today=2025-12-01`);
+    expect(later.loggingStreak).toEqual({ current: 0, best: 6 });
   });
 });
 

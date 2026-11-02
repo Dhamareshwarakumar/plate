@@ -1,5 +1,6 @@
 import {
   computeDayStatus,
+  INSIGHTS_RANGE_MAX_DAYS,
   localDayKey,
   movingAverage7,
   shiftDayKey,
@@ -85,9 +86,14 @@ export class InsightsService {
     return out;
   }
 
-  /** FR-I1. `today` is the client's day; the server's local day is the fallback (D70 approximation). */
+  /**
+   * FR-I1. `today` is the client's day; the server's local day is the fallback (D70
+   * approximation). Averages and adherence cover the range; the streaks are computed over the
+   * two years ending today, whatever the range, because a streak is a statement about now.
+   */
   summary(from: string, to: string, today = localDayKey(new Date())): InsightsSummary {
-    return summarize(this.daily(from, to), today);
+    const streakWindow = this.daily(shiftDayKey(today, -(INSIGHTS_RANGE_MAX_DAYS - 1)), today);
+    return summarize(this.daily(from, to), today, streakWindow);
   }
 
   /** FR-I6: the `limit` most-logged and the `limit` most-caloric foods of the range. */
