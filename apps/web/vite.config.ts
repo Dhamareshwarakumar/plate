@@ -9,9 +9,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': a new build is installed only after the user accepts the "update available"
+      // toast (src/pwa/register.ts), never under their feet mid-edit.
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
+        id: '/',
         name: 'Plate',
         short_name: 'Plate',
         description: 'Your personal diet ledger.',
@@ -32,6 +35,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
+        // First install takes control of the open page at once (offline-capable from the first
+        // visit); later builds still wait for the Update toast because skipWaiting stays off.
+        clientsClaim: true,
       },
       devOptions: { enabled: false },
     }),
@@ -47,7 +53,14 @@ export default defineConfig({
     proxy: { '/api': { target: 'http://127.0.0.1:8080', changeOrigin: false } },
   },
   preview: { host: '127.0.0.1', port: 4173 },
-  build: { sourcemap: false, target: 'es2022' },
+  build: {
+    sourcemap: false,
+    target: 'es2022',
+    // The vendor floor (react-dom, motion, router, query, zod + shared schemas) is ~720 kB raw in
+    // the entry chunk; the gate that matters is the gzip budget on the eager payload, enforced by
+    // tools/check-bundle.mjs (pnpm bundle:check).
+    chunkSizeWarningLimit: 800,
+  },
   test: {
     environment: 'jsdom',
     globals: false,
