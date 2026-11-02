@@ -45,7 +45,7 @@ days), the Phase 3 goal with a 74 kg goal weight, and five diary entries for tod
 seeded weights and goal in the dev database.
 
 ```sh
-node tools/seed-demo.mjs                  # ~35 days of meals, weigh-ins and water ending today, through the API (re-runnable; keeps the food library)
+node tools/seed-demo.mjs                  # ~35 days of meals, weigh-ins and water ending today, through the API (re-runnable; keeps the food library; deletes every goal and the window's entries; needs --yes against a non-loopback PLATE_API)
 node tools/shots/phase6-insights.mjs      # Insights: week, last month (full page), macros split, heatmap (month, week, 3-day custom), weight vs intake, top foods by kcal, by meal, custom range sheet, 3M, year (weekly bars + year strip), empty range, desktop month/3M/year, tooltip
 ```
 
@@ -104,3 +104,17 @@ and one meal template at the end for the existing-item editors, prints `MISSING 
 an error state has no Try again button, and uses a 2× device scale factor to keep the files small.
 Only `net::ERR_FAILED` console lines are expected. The table of what each screen shows per state is in
 DECISIONS.md (Phase 9 section).
+
+```sh
+node tools/shots/phase10-followups.mjs    # reviewer follow-ups: food editor portions (drag handles + move buttons, one move, one pointer drag; phone + desktop), picker Meals shelf error + the notice while searching, "Copy to another day…" from an archived meal, summary card over the goal but on target, lazy-chunk error page in the shell (phone + desktop) + Reload, adherence headline while settings load, profile Sex radiogroup, Insights year (first weekly tick = 1 Jan) and the year view with a goal on every day (goal band must start at the plot edge, phone + desktop); PNGs 100–113
+```
+
+`phase10-followups.mjs` creates a food with three portions ("Followups banana") and a meal slot
+("Followups supper") with one entry, archives the slot and deletes the food and the entry again at the
+end (the archived, empty slot stays: slots are never deleted). The failing templates request, the
+over-but-on-target day, the lazy chunk failure, the slow settings request and the "goal on every day"
+insights data are `page.route()` mocks (nothing is mocked in the app). It logs the portion order after
+the move button and after the drag, the Into-meal options for the archived source, the "over" line's
+classes, the chunk-error text, the Sex group's `aria-labelledby`, the first weekly tick and the goal
+band geometry (`BAND MISPLACED` if the band's `x` is not the plot's `x`). The `Failed to load resource`
+/ `dynamically imported module` console lines come from the mocks and are expected.

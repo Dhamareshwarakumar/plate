@@ -3,6 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { E2E_PASSWORD } from './constants';
 
 /**
  * End-to-end tests against the production build: `node apps/api/dist/server.js` serving
@@ -18,8 +19,6 @@ const port = Number(process.env.PLATE_E2E_PORT ?? 4273);
 const baseURL = `http://127.0.0.1:${port}`;
 const dbPath =
   process.env.PLATE_E2E_DB ?? join(mkdtempSync(join(tmpdir(), 'plate-e2e-')), 'plate.db');
-
-export const E2E_PASSWORD = 'e2e-password';
 
 export default defineConfig({
   testDir: '.',

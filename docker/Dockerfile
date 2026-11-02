@@ -3,10 +3,10 @@
 # Build from the repository root:  docker build -f docker/Dockerfile -t plate .
 #
 # Both stages are Alpine (musl): better-sqlite3 ships prebuilds/linuxmusl-{arm64,x64}.node and argon2
-# ships *.musl.node, so no compiler toolchain is needed and the runtime image is ~150 MB instead of
-# the ~565 MB of the Debian-based variant. If a future Node release lacks a musl prebuild, switch
-# both FROM lines back to node:${NODE_VERSION}-bookworm-slim and add `apt-get install python3 make g++`
-# to the builder.
+# ships *.musl.node, so no compiler toolchain is needed and the runtime image is ~315 MB (of which
+# ~165 MB is the Node base) instead of the ~565 MB of the Debian-based variant. If a future Node
+# release lacks a musl prebuild, switch both FROM lines back to node:${NODE_VERSION}-bookworm-slim
+# and add `apt-get install python3 make g++` to the builder.
 
 ARG NODE_VERSION=24
 

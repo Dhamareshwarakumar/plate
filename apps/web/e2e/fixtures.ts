@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import { E2E_PASSWORD } from './playwright.config';
+import { E2E_PASSWORD } from './constants';
 
 export const PASSWORD = E2E_PASSWORD;
 

@@ -1,12 +1,24 @@
 #!/usr/bin/env node
 // Seeds a demo month through the API: ~35 days of meals, weigh-ins and water ending today.
-//   node tools/seed-demo.mjs [--days=35]
+//   node tools/seed-demo.mjs [--days=35] [--yes]
 // Env: PLATE_API (default http://127.0.0.1:8080/api), PLATE_PASSWORD (default "password").
-// Re-runnable: it clears each day of the window before logging it and keeps the food library.
+// Re-runnable, but destructive inside its window: it deletes EVERY goal, then each day's diary
+// entries, water and weigh-in before logging them again. The food library is kept. Against anything
+// other than a loopback API (a real deployment) it refuses to run without --yes.
 
 const API = process.env.PLATE_API ?? 'http://127.0.0.1:8080/api';
 const PASSWORD = process.env.PLATE_PASSWORD ?? 'password';
 const DAYS = Number(process.argv.find((a) => a.startsWith('--days='))?.slice(7) ?? 35);
+const CONFIRMED = process.argv.includes('--yes');
+
+const apiHost = new URL(API).hostname;
+if (!['127.0.0.1', 'localhost', '[::1]'].includes(apiHost) && !CONFIRMED) {
+  console.error(
+    `Refusing to seed ${API}: this deletes every goal and the diary, water and weigh-ins of the last ${DAYS} days.\n` +
+      'Pass --yes if that is really what you want.',
+  );
+  process.exit(2);
+}
 
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
