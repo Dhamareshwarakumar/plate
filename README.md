@@ -43,6 +43,19 @@ By default the app is published on `127.0.0.1` only. Pick one:
 HTTPS (options 1 and 2) is what makes the home-screen install (PWA) work and sets the `Secure` flag
 on the session cookie.
 
+### Barcode scanning
+
+Open the log sheet (**+**) and tap the barcode button next to the search box, or use **Scan barcode**
+in the food editor's "Search online" sheet. The browser asks for the camera once; Plate reads EAN-13,
+EAN-8, UPC-A and UPC-E, matches the code against your library first (so a product you have scanned
+before goes straight to the quantity step) and otherwise fetches it from Open Food Facts through the
+same proxy as "Search online". Products Open Food Facts does not know can be created by hand with
+the barcode kept, so the next scan finds them. Decoding happens on the phone: Chrome on Android uses
+the built-in detector, everything else (iPhone Safari, Firefox, desktop Chrome) downloads a ~400 kB
+WebAssembly decoder from your Plate server the first time. The camera needs HTTPS (or `localhost`),
+which the deployment already has; if you denied the permission the sheet explains where to turn it
+back on for your browser.
+
 ### Behind Nginx Proxy Manager (or another proxy container)
 
 The proxy container cannot reach a port bound to the Pi's `127.0.0.1`, so instead of publishing a

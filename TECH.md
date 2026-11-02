@@ -142,12 +142,13 @@ apps/web/src/
 ├── features/
 │   ├── today/      DayStrip, SummaryCard (rings), MealSection, EntryRow, WaterCard, LogSheet (pick + quantity), EntryEditSheet
 │   ├── foods/      FoodList, FoodEditor, PortionsEditor, DishEditor, MealTemplateEditor, OffLookupSheet, CsvImportDialog
+│   ├── scan/       BarcodeScannerSheet (camera + viewfinder + states), useBarcodeScanner, detector (native BarcodeDetector → zxing-wasm fallback chunk), camera-help
 │   ├── insights/   RangePicker, StatTiles, CaloriesChart, MacrosChart, CalendarHeatmap, WeightVsIntake, TopFoods, BySlot
 │   ├── weight/     WeightSummary, WeightChart, WeightLogSheet, WeightList
 │   ├── settings/   GoalEditor + Calculator, SlotsManager, CategoriesManager, Appearance, Profile, DataTools, About
 │   └── auth/       LoginPage, session guard (RequireAuth: shell skeleton, "Can't reach Plate" + retry, login redirect)
 ├── components/ui/  Button, Sheet, Dialog, Tabs, Chip, Ring, Bar, Skeleton, Toast, EmptyState, ErrorState, NumberField, Kbd, focus helpers…
-├── lib/            api client (typed from shared), fuzzy search, formatters, theme, keyboard shortcuts
+├── lib/            api client (typed from shared), fuzzy search, formatters, theme, keyboard shortcuts, barcode maths (GS1 check digits, UPC-E expansion, OFF normalisation)
 ├── pwa/            register.ts: service-worker registration (prompt mode), "update available" toast, hourly update check
 └── e2e/            Playwright config, fixtures and specs (diary, goal, import, pwa, keyboard)
 ```
@@ -159,6 +160,7 @@ apps/web/src/
 - Logging uses **optimistic updates**: the entry appears and the ring animates before the server confirms; on failure it rolls back with a toast.
 - Theme: `class="dark"` on `<html>` driven by `prefers-color-scheme` unless overridden; stored in `localStorage`.
 - Day key comes from the device clock via `date-fns` `format(new Date(), 'yyyy-MM-dd')`; `logged_at` is `new Date().toISOString()` plus the device offset, sent together.
+- Barcode scanning (Phase 10b) is client-only: `getUserMedia` (rear camera preferred) → frames decoded by the browser's `BarcodeDetector` when it supports EAN/UPC, else by `zxing-wasm` loaded on demand from a separate chunk with the `.wasm` served from this origin (D162). Codes are check-digit validated and normalised to Open Food Facts' form (`lib/barcode.ts`, D165), matched against `food.offCode`, and otherwise looked up through the existing `GET /api/off/product/:code` proxy. No new API routes or tables.
 
 ## 7. Security and exposure
 
@@ -186,7 +188,7 @@ PWA installation (service worker, home-screen app) and the `Secure` cookie flag 
 
 ### 7.4 Other hardening
 
-- `@fastify/helmet` headers with a strict CSP (`default-src 'self'`; `script-src 'self'`, so no inline scripts: the theme-before-first-paint bootstrap is the external `/theme-init.js`; images `self data: blob:`), `X-Content-Type-Options`, `Referrer-Policy: no-referrer`.
+- `@fastify/helmet` headers with a strict CSP (`default-src 'self'`; `script-src 'self' 'wasm-unsafe-eval'`, so no inline scripts and no `eval`: the theme-before-first-paint bootstrap is the external `/theme-init.js`, and `'wasm-unsafe-eval'` only lets the browser compile the barcode scanner's own `.wasm` asset, D163; images `self data: blob:`), `X-Content-Type-Options`, `Referrer-Policy: no-referrer`.
 - Rate limit (300 req/min per IP) is scoped to `/api`; the static shell is not counted, so a service-worker precache of ~80 files cannot lock the device out of the API.
 - Body limit 1 MB on JSON, 20 MB on CSV/JSON imports; multipart limited to one file.
 - All DB access through Drizzle's parameterized queries; CSV cells are typed and bounded; names capped at 120 chars.

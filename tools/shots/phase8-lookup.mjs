@@ -255,7 +255,13 @@ for (const label of [
   values[label] = await fieldValue(label);
 }
 console.log('prefilled:', JSON.stringify(values));
-console.log('hint:', await page.getByText(/Prefilled from Open Food Facts/).innerText());
+console.log(
+  'hint:',
+  await page
+    .getByText(/^Barcode/)
+    .first()
+    .innerText(),
+);
 console.log(
   'more nutrients expanded:',
   await page.getByRole('button', { name: 'Fewer nutrients' }).isVisible(),

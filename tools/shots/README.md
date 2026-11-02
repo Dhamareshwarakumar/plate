@@ -118,3 +118,17 @@ the move button and after the drag, the Into-meal options for the archived sourc
 classes, the chunk-error text, the Sex group's `aria-labelledby`, the first weekly tick and the goal
 band geometry (`BAND MISPLACED` if the band's `x` is not the plot's `x`). The `Failed to load resource`
 / `dynamically imported module` console lines come from the mocks and are expected.
+
+```sh
+node tools/shots/phase10-scan.mjs         # camera barcode scanning: log sheet scan button, scanner requesting / scanning (+ torch) / found / denied (+ retry) / no camera / busy / unsupported, scanned step (OFF product → "Add to library and log" → quantity; library match → quantity; unknown code → "Create food manually" → editor with the barcode kept; lookup disabled), "Search online" with Scan barcode (result list, unknown code → "Keep barcode on this food"), desktop scanning + match; PNGs 120–139
+```
+
+`phase10-scan.mjs` mocks only the camera and Open Food Facts: an init script replaces
+`navigator.mediaDevices.getUserMedia` with a `canvas.captureStream()` that draws a real EAN-13/EAN-8
+(or a blank surface, or rejects with `NotAllowedError` / `NotFoundError` / `NotReadableError`), and
+`page.route()` answers `/api/off/**` with the mapped Twix product or a 404. Detection is real; the
+script logs which engine the browser used (`engine: native|zxing`; the Playwright Chrome channel on
+macOS reports `zxing`), the saved food's `basis`/`source`/`offCode`, the editor URL after "Create food
+manually" and each failure state's text. It creates "Twix glacé" through "Add to library and log" and
+deletes it at the end (nothing is logged, so the delete succeeds). The two `Failed to load resource:
+... 404` console lines are the mocked unknown-barcode lookups and are expected.

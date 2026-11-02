@@ -91,7 +91,7 @@ Opened by the **+** FAB, any "Add to <meal>" button, or `N` on desktop. Phone: a
 ┌──────────────────────────────────┐
 │ ━━━                              │
 │ Log to  [Breakfast ▾]  Sat 19 Oct│  ← slot preselected from the time window; tap to change
-│ 🔍 Search foods…                 │  ← autofocused, numeric-free keyboard
+│ 🔍 Search foods…            [▯▯▯] │  ← autofocused, numeric-free keyboard; ▯▯▯ scans a barcode (Phase 10b)
 │ [Recent] [Frequent] [Dishes] [Meals] [All] │
 │                                  │
 │  Oats              389 kcal/100g │  ← each row: name · kcal/100 · tiny P/C/F
@@ -109,6 +109,12 @@ Opened by the **+** FAB, any "Add to <meal>" button, or `N` on desktop. Phone: a
 - Search is instant and typo-tolerant ("bananna" finds Banana), matches name and brand, shows category as a muted tag.
 - Picking a **meal template** jumps to a review list (each item with editable grams) and a single "Log 4 items" button.
 - **Quick ad-hoc entry**: name, kcal, optional P/C/F, quantity label (free text, e.g. "1 slice"), toggle "Also save to library as per-100 g values" (asks for the weight when on).
+
+**Scan barcode** (Phase 10b): the ▯▯▯ button right of the search box opens a camera sheet (rear camera, viewfinder with corner brackets and a sweeping line, torch toggle when the camera has one, Cancel). Reads EAN-13, EAN-8, UPC-A and UPC-E; a code counts once two frames agree, the brackets turn green with "Found <code>", and the sheet closes.
+
+- Library food with that barcode → straight to Step 2 for it.
+- Otherwise a **Barcode <code>** step: the Open Food Facts product (name, brand · size, kcal/P/C/F per 100) with **Add to library and log** (creates the food with the barcode, then Step 2) and **Create food manually**; "Not on Open Food Facts" when there is none, with Create food manually (the editor opens with the barcode already kept); when the online lookup is turned off on the server the step says so and still offers the manual path.
+- Camera problems have their own screens: starting (spinner, "choose Allow"), denied (how to re-enable, per browser, with Try again), no camera, camera busy, unsupported browser or plain-http page. Each points at typing the barcode into Search online instead.
 
 ### Step 2 — quantity
 
@@ -161,6 +167,8 @@ Desktop: a data table with sortable columns (Name, Category, kcal, P, C, F, fibe
 Sections top to bottom: **Basics** (name, brand, category, basis g/ml) · **Nutrition per 100 g** (kcal, protein, carbs, fat required; expandable "More" for fiber, sugar, saturated fat, sodium) with the live sanity hint "4P+4C+9F = 396 kcal, matches" or a warning when off by > 25 % (FR-F7) · **Portions** (list of label + grams rows, add/remove/reorder) · **Usage** (times logged, last logged) · actions Save / Archive / Delete (delete only when unused).
 
 The **Search online** button (FR-F5) opens a sub-sheet: type a name or barcode → results from Open Food Facts with brand and kcal → tap one to prefill all nutrition fields and the brand; the source is remembered on the food. Hidden entirely when the lookup is disabled in deployment.
+
+The sub-sheet's footer has **Scan barcode** (Phase 10b): a camera sheet (see §3, "Scan barcode") reads the package's EAN/UPC and runs the same product lookup. When Open Food Facts has no product for a typed or scanned barcode, the sheet offers **Keep barcode on this food**, so a local product typed in by hand can still be logged by scanning later. The editor then shows "Barcode <code> · scanning it logs this food" under the Nutrition heading.
 
 ### 4.3 Dish editor (FR-R1, FR-R2)
 
