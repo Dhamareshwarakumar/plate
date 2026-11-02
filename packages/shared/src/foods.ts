@@ -89,6 +89,11 @@ export const foodInputSchema = z.object({
   portions: z.array(portionInputSchema).max(PORTIONS_MAX).default([]),
   /** Open Food Facts product code when the values came from a lookup (FR-F5); sets `source = 'off'`. */
   offCode: offCodeSchema.nullable().default(null),
+  /**
+   * True when the nutrition fields were filled by the AI estimate and not edited since (Phase 11);
+   * sets `source = 'ai'` and `estimatedAt`. Saving edited nutrition without it clears `estimatedAt`.
+   */
+  estimated: z.boolean().default(false),
 });
 export type FoodInput = z.input<typeof foodInputSchema>;
 export type FoodInputParsed = z.output<typeof foodInputSchema>;

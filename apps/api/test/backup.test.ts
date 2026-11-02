@@ -385,6 +385,23 @@ describe('POST /api/backup/restore', () => {
     expect(next.id).toBeGreaterThan(maxFoodId);
   });
 
+  it('restores a backup written before foods.estimated_at existed (Phase 11), defaulting it to null', async () => {
+    const backup = await exportBackup();
+    expect(backup.data.foods.every((f) => 'estimated_at' in f)).toBe(true);
+    const legacy = {
+      ...backup,
+      data: {
+        ...backup.data,
+        foods: backup.data.foods.map(({ estimated_at: _estimatedAt, ...rest }) => rest),
+      },
+    };
+    const res = await ok(restore(legacy));
+    expect(res.json<RestoreResult>().restored.foods).toBe(backup.data.foods.length);
+    expect(dumpAll().foods.map((f) => f['estimated_at'])).toEqual(
+      backup.data.foods.map(() => null),
+    );
+  });
+
   it('refuses bad files and leaves the data intact', async () => {
     const before = dumpAll();
 
@@ -537,6 +554,7 @@ describe('GET /api/about', () => {
       dbPath: ':memory:',
       counts: { foods: 4, entries: 3, days: 2 },
       offEnabled: true,
+      ai: { enabled: true, provider: 'fake', model: 'fake-1' },
     });
     expect(about.dbSizeBytes).toBeGreaterThan(0);
     expect(about.dbSizeBytes % 4096).toBe(0);

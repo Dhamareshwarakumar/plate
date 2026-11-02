@@ -6,6 +6,8 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { createAiProvider } from './ai/providers/index.js';
+import { AiService } from './ai/service.js';
 import authPlugin from './auth/plugin.js';
 import { AuthService } from './auth/service.js';
 import { SessionStore } from './auth/sessions.js';
@@ -26,6 +28,7 @@ import { OffLookupService } from './off/service.js';
 import { PushService } from './push/service.js';
 import { ReminderService } from './reminders/service.js';
 import { aboutRoutes } from './routes/about.js';
+import { aiRoutes } from './routes/ai.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
 import { categoryRoutes } from './routes/categories.js';
@@ -171,6 +174,18 @@ export async function buildAppWithServices(options: BuildAppOptions): Promise<Bu
     mealSlots: mealSlotService,
     goals: goalService,
   });
+  // AI assistance (Phase 11): null provider when AI_PROVIDER=none; the routes then answer 404.
+  const aiProvider = createAiProvider(config, app.log);
+  const aiService = new AiService(db, {
+    provider: aiProvider,
+    foods: foodService,
+    diary: diaryService,
+    mealSlots: mealSlotService,
+    insights: insightsService,
+    settings: settingsService,
+    maxImageBytes: config.aiMaxImageBytes,
+    logger: app.log,
+  });
 
   await app.register(
     async (api) => {
@@ -207,10 +222,16 @@ export async function buildAppWithServices(options: BuildAppOptions): Promise<Bu
         await guarded.register(aboutRoutes, {
           backup: backupService,
           offEnabled: config.offLookupEnabled,
+          ai: {
+            enabled: aiProvider !== null,
+            provider: config.aiProvider,
+            model: aiProvider?.model ?? null,
+          },
         });
         await guarded.register(offRoutes, { off: offService });
         await guarded.register(reminderRoutes, { reminders: reminderService });
         await guarded.register(pushRoutes, { push: pushService });
+        await guarded.register(aiRoutes, { ai: aiService, maxImageBytes: config.aiMaxImageBytes });
       });
     },
     { prefix: '/api' },

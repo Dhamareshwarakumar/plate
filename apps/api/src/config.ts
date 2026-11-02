@@ -1,3 +1,8 @@
+import {
+  AI_MAX_IMAGE_BYTES_DEFAULT,
+  aiProviderKindSchema,
+  type AiProviderKind,
+} from '@plate/shared';
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { APP_VERSION } from './version.js';
@@ -5,6 +10,22 @@ import { APP_VERSION } from './version.js';
 const booleanString = z
   .enum(['true', 'false', '1', '0'])
   .transform((v) => v === 'true' || v === '1');
+
+/**
+ * Optional variables that compose passes through as `${VAR:-}`: an empty string means "not set", so
+ * it must behave exactly like an absent variable (defaults apply, nothing is validated).
+ */
+const emptyToUndefined = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+const optionalString = z.preprocess(emptyToUndefined, z.string().min(1).optional());
+
+/**
+ * Current Gemini Flash model, checked against https://ai.google.dev/gemini-api/docs/models on
+ * 2026-11-02 ("Gemini 3.8 Flash, gemini-3.8-flash, stable"). `AI_MODEL` overrides it.
+ */
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+/** The fake driver's model name, reported by `GET about` and the `x-ai-model` header. */
+export const FAKE_AI_MODEL = 'fake-1';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('production'),
@@ -44,6 +65,42 @@ const envSchema = z.object({
     .string()
     .regex(/^(mailto:.+|https:\/\/.+)$/, 'must be a mailto: address or an https: URL')
     .default('mailto:plate@localhost'),
+  /**
+   * AI assistance (Phase 11). `none` (default) = the feature is hidden and every AI route answers
+   * 404 "AI assistance is disabled". `gemini` and `openai_compatible` need `AI_API_KEY`;
+   * `openai_compatible` also needs `AI_BASE_URL` and `AI_MODEL`. `fake` is dev/test only: canned
+   * answers, no key, no network; opt-in by this exact value and never a default.
+   */
+  AI_PROVIDER: z.preprocess(emptyToUndefined, aiProviderKindSchema.default('none')),
+  /** Provider API key. Sent only to the provider, in a header; never logged, never in `GET about`. */
+  AI_API_KEY: optionalString,
+  /** Model name; defaults to `DEFAULT_GEMINI_MODEL` for gemini and is required for openai_compatible. */
+  AI_MODEL: optionalString,
+  /** OpenAI-compatible only: the API root the `/chat/completions` path is appended to. */
+  AI_BASE_URL: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .url()
+      .regex(/^https?:\/\//, 'must be an http(s) URL')
+      .transform((v) => v.replace(/\/+$/, ''))
+      .optional(),
+  ),
+  /** Per-call timeout for the provider request. */
+  AI_TIMEOUT_MS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1000).max(300_000).default(30_000),
+  ),
+  /** Largest decoded meal photo accepted by `POST ai/parse-meal`. */
+  AI_MAX_IMAGE_BYTES: z.preprocess(
+    emptyToUndefined,
+    z.coerce
+      .number()
+      .int()
+      .min(64 * 1024)
+      .max(20 * 1024 * 1024)
+      .default(AI_MAX_IMAGE_BYTES_DEFAULT),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -64,6 +121,14 @@ export interface AppConfig {
   offLookupEnabled: boolean;
   offUserAgent: string;
   pushVapidSubject: string;
+  /** AI assistance (Phase 11); `none` disables the feature and the routes. */
+  aiProvider: AiProviderKind;
+  aiApiKey: string | undefined;
+  /** Configured or defaulted model name; null when the provider is `none`. */
+  aiModel: string | null;
+  aiBaseUrl: string | undefined;
+  aiTimeoutMs: number;
+  aiMaxImageBytes: number;
 }
 
 export class ConfigError extends Error {
@@ -112,5 +177,33 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     offLookupEnabled: env.OFF_LOOKUP_ENABLED,
     offUserAgent: env.OFF_USER_AGENT ?? `Plate/${APP_VERSION} (self-hosted diet ledger)`,
     pushVapidSubject: env.PUSH_VAPID_SUBJECT,
+    aiProvider: env.AI_PROVIDER,
+    aiApiKey: env.AI_API_KEY,
+    aiModel: resolveAiModel(env),
+    aiBaseUrl: env.AI_BASE_URL,
+    aiTimeoutMs: env.AI_TIMEOUT_MS,
+    aiMaxImageBytes: env.AI_MAX_IMAGE_BYTES,
   };
+}
+
+/** The model per provider, after checking the variables each real provider cannot run without. */
+function resolveAiModel(env: Env): string | null {
+  switch (env.AI_PROVIDER) {
+    case 'none':
+      return null;
+    case 'fake':
+      return FAKE_AI_MODEL;
+    case 'gemini':
+      if (!env.AI_API_KEY) throw new ConfigError('AI_PROVIDER=gemini needs AI_API_KEY');
+      return env.AI_MODEL ?? DEFAULT_GEMINI_MODEL;
+    case 'openai_compatible':
+      if (!env.AI_API_KEY) throw new ConfigError('AI_PROVIDER=openai_compatible needs AI_API_KEY');
+      if (!env.AI_BASE_URL) {
+        throw new ConfigError(
+          'AI_PROVIDER=openai_compatible needs AI_BASE_URL (e.g. https://openrouter.ai/api/v1)',
+        );
+      }
+      if (!env.AI_MODEL) throw new ConfigError('AI_PROVIDER=openai_compatible needs AI_MODEL');
+      return env.AI_MODEL;
+  }
 }

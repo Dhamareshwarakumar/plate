@@ -223,6 +223,52 @@ describe('foods', () => {
     ]);
   });
 
+  it('marks AI-estimated nutrition (source ai, estimatedAt) and clears it when the nutrition is edited', async () => {
+    const food = await createFood({ name: 'Sambar', estimated: true });
+    expect(food).toMatchObject({ source: 'ai', offCode: null });
+    expect(food.estimatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect((await api('GET', `/api/foods/${food.id}`)).json()).toEqual(food);
+
+    // Renaming or re-saving the same nutrition without the flag keeps the provenance.
+    const renamed = await api('PUT', `/api/foods/${food.id}`, {
+      name: 'Sambar (homemade)',
+      per100,
+      estimated: false,
+    });
+    expect(renamed.statusCode, renamed.body).toBe(200);
+    expect(renamed.json<Food>()).toMatchObject({ source: 'ai', estimatedAt: food.estimatedAt });
+
+    // Editing a nutrition value clears estimatedAt; the source stays as a record of where it came from.
+    const edited = await api('PUT', `/api/foods/${food.id}`, {
+      name: 'Sambar (homemade)',
+      per100: { ...per100, kcal: 110 },
+    });
+    expect(edited.statusCode, edited.body).toBe(200);
+    expect(edited.json<Food>()).toMatchObject({ source: 'ai', estimatedAt: null });
+
+    // Applying a new estimate sets it again.
+    const reEstimated = await api('PUT', `/api/foods/${food.id}`, {
+      name: 'Sambar (homemade)',
+      per100: { ...per100, kcal: 95 },
+      estimated: true,
+    });
+    expect(reEstimated.statusCode, reEstimated.body).toBe(200);
+    expect(reEstimated.json<Food>()).toMatchObject({
+      source: 'ai',
+      estimatedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) as string,
+    });
+
+    // A food created by hand never carries the marker, and a lookup result wins over the flag.
+    const manual = await createFood({ name: 'Idli' });
+    expect(manual).toMatchObject({ source: 'manual', estimatedAt: null });
+    const fromLookup = await createFood({
+      name: 'Twix',
+      offCode: '5000159484695',
+      estimated: true,
+    });
+    expect(fromLookup).toMatchObject({ source: 'off', offCode: '5000159484695' });
+  });
+
   it('lists with filters and hides archived foods by default', async () => {
     const fruit = (await api('GET', '/api/categories')).json<Category[]>()[0]!;
     const banana = await createFood({ categoryId: fruit.id });

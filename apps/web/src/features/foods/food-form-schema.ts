@@ -96,7 +96,14 @@ const optionalNum = (raw: string): number | null => {
 };
 const fmt = (n: number | null): string => (n === null ? '' : String(n));
 
-export function toFoodInput(values: FoodFormValues): FoodInput {
+/**
+ * The API shape of a validated form. `estimated` marks nutrition that the AI estimate filled and the
+ * user left unchanged (Phase 11): the server then records `source = 'ai'` and `estimatedAt`.
+ */
+export function toFoodInput(
+  values: FoodFormValues,
+  options: { estimated?: boolean } = {},
+): FoodInput {
   return {
     name: values.name,
     brand: values.brand === '' ? null : values.brand,
@@ -114,6 +121,7 @@ export function toFoodInput(values: FoodFormValues): FoodInput {
     },
     portions: values.portions.map((p) => ({ label: p.label, amount: num(p.amount) })),
     offCode: values.offCode === '' ? null : values.offCode,
+    estimated: options.estimated ?? false,
   };
 }
 

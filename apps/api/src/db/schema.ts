@@ -67,10 +67,12 @@ export const foods = sqliteTable(
     sugar: real('sugar'),
     saturatedFat: real('saturated_fat'),
     sodiumMg: real('sodium_mg'),
-    source: text('source', { enum: ['manual', 'off', 'dish'] })
+    source: text('source', { enum: ['manual', 'off', 'dish', 'ai'] })
       .notNull()
       .default('manual'),
     offCode: text('off_code'),
+    /** Set when the nutrition came from the AI estimate; cleared when the user saves edited nutrition (Phase 11). */
+    estimatedAt: text('estimated_at'),
     /** Dishes only: the cooked weight the per-100 values are spread over. */
     cookedWeightG: real('cooked_weight_g'),
     /** Dishes only: number of servings behind the "1 serving" portion. */
@@ -316,4 +318,24 @@ export const reminderSends = sqliteTable(
     sentAt: text('sent_at').notNull(),
   },
   (t) => [uniqueIndex('reminder_sends_key_day_unique').on(t.reminderKey, t.day)],
+);
+
+/**
+ * One row per AI provider round-trip (Phase 11), successful or not, behind the usage counter under
+ * More → AI assistant. Token counts are what the provider reported (null when it reported none).
+ * Operational data, not the user's: outside the JSON backup like the push tables.
+ */
+export const aiUsage = sqliteTable(
+  'ai_usage',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** `parse_meal`, `estimate_food`, `parse_recipe` or `weekly_digest` (see `aiFeatureSchema` in shared). */
+    feature: text('feature').notNull(),
+    requestedAt: text('requested_at').notNull(),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    /** 1 when the call ended in a usable answer, 0 when it ended in an error. */
+    ok: integer('ok').notNull(),
+  },
+  (t) => [index('ai_usage_requested_at_idx').on(t.requestedAt)],
 );

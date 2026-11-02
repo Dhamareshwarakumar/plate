@@ -45,8 +45,7 @@ export function toFood(row: FoodRow, portionRows: PortionRow[]): Food {
     portions: portionRows.sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id).map(toPortion),
     source: row.source,
     offCode: row.offCode,
-    // Always null until migration 0007 adds `foods.estimated_at` (Phase 11, API stage).
-    estimatedAt: null,
+    estimatedAt: row.estimatedAt,
     staleSince: row.staleSince,
     archivedAt: row.archivedAt,
     createdAt: row.createdAt,
@@ -122,7 +121,10 @@ export class FoodService {
       .get();
   }
 
-  /** Creates a plain food. A food built from an Open Food Facts result carries its code (FR-F5). */
+  /**
+   * Creates a plain food. A food built from an Open Food Facts result carries its code (FR-F5); one
+   * whose nutrition the AI assistant estimated is marked `source = 'ai'` with `estimatedAt` (Phase 11).
+   */
   create(input: FoodInputParsed): Food {
     this.assertCategory(input.categoryId);
     this.assertNameFree(input.name, input.brand);
@@ -137,8 +139,9 @@ export class FoodService {
           categoryId: input.categoryId,
           basis: input.basis,
           ...input.per100,
-          source: input.offCode ? 'off' : 'manual',
+          source: input.offCode ? 'off' : input.estimated ? 'ai' : 'manual',
           offCode: input.offCode,
+          estimatedAt: input.estimated ? now : null,
           createdAt: now,
           updatedAt: now,
         })
@@ -155,6 +158,8 @@ export class FoodService {
    * or basis changed (FR-R2); their stored per-100 values are left alone until recalculated. A
    * rename or a portion change does not touch them. A lookup result applied in the editor re-links
    * the food to its Open Food Facts code; a manual edit without a code keeps the existing provenance.
+   * `estimated` marks the saved nutrition as the AI estimate (`source = 'ai'`, `estimatedAt` now);
+   * otherwise saving changed nutrition clears `estimatedAt` and saving anything else keeps it (Phase 11).
    */
   update(id: number, input: FoodInputParsed): Food {
     const existing = this.db.select().from(foods).where(eq(foods.id, id)).get();
@@ -170,6 +175,11 @@ export class FoodService {
       (Object.keys(input.per100) as (keyof typeof input.per100)[]).some(
         (key) => existing[key] !== input.per100[key],
       );
+    const provenance = input.estimated
+      ? { source: 'ai' as const, estimatedAt: now }
+      : nutritionChanged
+        ? { estimatedAt: null }
+        : {};
     this.db.transaction((tx) => {
       tx.update(foods)
         .set({
@@ -178,6 +188,7 @@ export class FoodService {
           categoryId: input.categoryId,
           basis: input.basis,
           ...input.per100,
+          ...provenance,
           ...(input.offCode ? { source: 'off' as const, offCode: input.offCode } : {}),
           updatedAt: now,
         })

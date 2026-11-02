@@ -59,6 +59,8 @@ export const foodRowSchema = z.object({
   sodium_mg: nullableNum,
   source: foodSourceSchema,
   off_code: nullableStr,
+  /** Added in migration 0007 (Phase 11); the default lets backups written before it restore. */
+  estimated_at: nullableStr.default(null),
   cooked_weight_g: nullableNum,
   servings: nullableInt,
   stale_since: nullableStr,

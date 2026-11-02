@@ -99,6 +99,7 @@ function stubApi(options: { offEnabled?: boolean; product?: () => Response } = {
         dbPath: 'plate.db',
         counts: { foods: 1, entries: 0, days: 0 },
         offEnabled: options.offEnabled ?? true,
+        ai: { enabled: false, provider: 'none', model: null },
       });
     }
     if (url.startsWith('/api/off/product/')) return (options.product ?? (() => json(twixResult)))();

@@ -11,6 +11,7 @@ const about = {
   dbPath: 'plate.db',
   counts: { foods: 23, entries: 334, days: 31 },
   offEnabled: true,
+  ai: { enabled: false, provider: 'none', model: null },
 };
 
 const validBackup = () => ({
@@ -38,6 +39,7 @@ const validBackup = () => ({
         sodium_mg: null,
         source: 'manual',
         off_code: null,
+        estimated_at: null,
         cooked_weight_g: null,
         servings: null,
         stale_since: null,

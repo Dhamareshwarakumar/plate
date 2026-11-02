@@ -1,8 +1,9 @@
+import { AI_MAX_IMAGE_BYTES_DEFAULT } from '@plate/shared';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { AuthService } from '../src/auth/service.js';
 import { SessionStore } from '../src/auth/sessions.js';
-import type { AppConfig } from '../src/config.js';
+import { FAKE_AI_MODEL, type AppConfig } from '../src/config.js';
 import { openDb, type OpenedDb } from '../src/db/index.js';
 
 export const TEST_PASSWORD = 'test-password-1';
@@ -23,6 +24,13 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     offLookupEnabled: true,
     offUserAgent: 'Plate/test',
     pushVapidSubject: 'mailto:test@plate.test',
+    // The fake driver by default: canned answers, no network (AI_PROVIDER=fake).
+    aiProvider: 'fake',
+    aiApiKey: undefined,
+    aiModel: FAKE_AI_MODEL,
+    aiBaseUrl: undefined,
+    aiTimeoutMs: 30_000,
+    aiMaxImageBytes: AI_MAX_IMAGE_BYTES_DEFAULT,
     ...overrides,
   };
 }

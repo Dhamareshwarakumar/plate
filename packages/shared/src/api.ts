@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { aiAboutSchema } from './ai.js';
 
 /** Stable machine-readable error codes returned by the API. */
 export const apiErrorCodeSchema = z.enum([
@@ -47,6 +48,8 @@ export const aboutResponseSchema = z.object({
   }),
   /** Whether the Open Food Facts proxy is on (`OFF_LOOKUP_ENABLED`); hides "Search online" when false. */
   offEnabled: z.boolean(),
+  /** AI assistance (Phase 11): enabled flag, provider kind and model name. Never the key. */
+  ai: aiAboutSchema,
 });
 export type AboutResponse = z.infer<typeof aboutResponseSchema>;
 
