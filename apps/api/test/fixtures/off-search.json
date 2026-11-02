@@ -1,0 +1,89 @@
+{
+  "count": 1573,
+  "page": 1,
+  "page_count": 20,
+  "page_size": 20,
+  "skip": 0,
+  "products": [
+    {
+      "code": "7394376616228",
+      "product_name": "The original oat-ly barista edition oat drink",
+      "brands": "Oatly, Oatly AB",
+      "quantity": "1l",
+      "nutriments": {
+        "carbohydrates_100g": 7.1,
+        "energy-kcal_100g": 61,
+        "energy_100g": 257,
+        "fat_100g": 3,
+        "fiber_100g": 0.8,
+        "proteins_100g": 1.1,
+        "salt_100g": 0.0975,
+        "saturated-fat_100g": 0.3,
+        "sodium_100g": 0.039,
+        "sugars_100g": 3.4
+      }
+    },
+    {
+      "code": "5060120281975",
+      "product_name": "Oat Organic Drink",
+      "brands": "Rude Health",
+      "quantity": "1 litre",
+      "nutriments": {
+        "carbohydrates_100g": 6.3,
+        "energy_100g": 1179.8,
+        "fat_100g": 2.3,
+        "proteins_100g": 0.5,
+        "salt_100g": 0.25
+      }
+    },
+    {
+      "code": "4061459329834",
+      "product_name": "  Oat Milk   (Barista Style) ",
+      "brands": "",
+      "quantity": "1 l",
+      "nutriments": {
+        "energy-kcal_100g": "49",
+        "proteins_100g": "3.4",
+        "carbohydrates_100g": "5.9",
+        "fat_100g": "1.8",
+        "sugars_100g": "3.3"
+      }
+    },
+    {
+      "code": "4000000000001",
+      "product_name": "Mystery drink without energy",
+      "brands": "Nobody",
+      "nutriments": {
+        "proteins_100g": 1,
+        "carbohydrates_100g": 2,
+        "fat_100g": 3
+      }
+    },
+    {
+      "code": "4000000000002",
+      "product_name": "",
+      "brands": "Nameless",
+      "nutriments": {
+        "energy-kcal_100g": 50
+      }
+    },
+    {
+      "code": "4000000000003",
+      "product_name": "Impossible bar",
+      "nutriments": {
+        "energy-kcal_100g": 1500,
+        "proteins_100g": 10,
+        "carbohydrates_100g": 10,
+        "fat_100g": 10
+      }
+    },
+    {
+      "code": "7394376616228",
+      "product_name": "The original oat-ly barista edition oat drink (duplicate)",
+      "brands": "Oatly",
+      "nutriments": {
+        "energy-kcal_100g": 61
+      }
+    }
+  ]
+}

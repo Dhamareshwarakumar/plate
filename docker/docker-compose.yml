@@ -22,6 +22,8 @@ services:
       # Set to "true" when a reverse proxy terminates TLS in front of Plate (Caddy, nginx, Traefik).
       TRUST_PROXY: ${TRUST_PROXY:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # "Search online" in the food editor (Open Food Facts). false = no outbound calls at all.
+      OFF_LOOKUP_ENABLED: ${OFF_LOOKUP_ENABLED:-true}
     volumes:
       - ./data:/data
     read_only: true

@@ -150,8 +150,11 @@ export class BackupService {
     return file;
   }
 
-  /** `GET about`: size from the page count (works for `:memory:` too), file name, headline counts. */
-  stats(): AboutResponse {
+  /**
+   * The database half of `GET about`: size from the page count (works for `:memory:` too), file
+   * name, headline counts. The route adds the deployment flags.
+   */
+  stats(): Omit<AboutResponse, 'offEnabled'> {
     const pageCount = this.sqlite.pragma('page_count', { simple: true }) as number;
     const pageSize = this.sqlite.pragma('page_size', { simple: true }) as number;
     const counts = this.sqlite

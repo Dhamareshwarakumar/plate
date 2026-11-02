@@ -476,6 +476,7 @@ describe('GET /api/about', () => {
       dbSizeBytes: expect.any(Number) as number,
       dbPath: ':memory:',
       counts: { foods: 4, entries: 3, days: 2 },
+      offEnabled: true,
     });
     expect(about.dbSizeBytes).toBeGreaterThan(0);
     expect(about.dbSizeBytes % 4096).toBe(0);

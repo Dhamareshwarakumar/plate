@@ -1,0 +1,22 @@
+{
+  "code": "5000159484695",
+  "product": {
+    "brands": "Twix",
+    "code": "5000159484695",
+    "nutriments": {
+      "carbohydrates_100g": 34.8,
+      "energy-kcal_100g": 280.74,
+      "energy_100g": 1179.8,
+      "fat_100g": 14.62,
+      "proteins_100g": 2.78,
+      "salt_100g": 0.255220417633411,
+      "saturated-fat_100g": 9.04872389791183,
+      "sodium_100g": 0.102088167053364,
+      "sugars_100g": 25.5220417633411
+    },
+    "product_name": "Twix glacé",
+    "quantity": "1 gram"
+  },
+  "status": 1,
+  "status_verbose": "product found"
+}

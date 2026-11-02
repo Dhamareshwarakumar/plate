@@ -44,6 +44,7 @@ export function toFood(row: FoodRow, portionRows: PortionRow[]): Food {
     per100: per100Of(row),
     portions: portionRows.sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id).map(toPortion),
     source: row.source,
+    offCode: row.offCode,
     staleSince: row.staleSince,
     archivedAt: row.archivedAt,
     createdAt: row.createdAt,
@@ -119,7 +120,8 @@ export class FoodService {
       .get();
   }
 
-  create(input: FoodInputParsed, source: 'manual' | 'off' = 'manual'): Food {
+  /** Creates a plain food. A food built from an Open Food Facts result carries its code (FR-F5). */
+  create(input: FoodInputParsed): Food {
     this.assertCategory(input.categoryId);
     this.assertNameFree(input.name, input.brand);
     const now = new Date().toISOString();
@@ -133,7 +135,8 @@ export class FoodService {
           categoryId: input.categoryId,
           basis: input.basis,
           ...input.per100,
-          source,
+          source: input.offCode ? 'off' : 'manual',
+          offCode: input.offCode,
           createdAt: now,
           updatedAt: now,
         })
@@ -148,7 +151,8 @@ export class FoodService {
   /**
    * Edits a plain food. Dishes that use it as an ingredient are flagged stale when the nutrition
    * or basis changed (FR-R2); their stored per-100 values are left alone until recalculated. A
-   * rename or a portion change does not touch them.
+   * rename or a portion change does not touch them. A lookup result applied in the editor re-links
+   * the food to its Open Food Facts code; a manual edit without a code keeps the existing provenance.
    */
   update(id: number, input: FoodInputParsed): Food {
     const existing = this.db.select().from(foods).where(eq(foods.id, id)).get();
@@ -172,6 +176,7 @@ export class FoodService {
           categoryId: input.categoryId,
           basis: input.basis,
           ...input.per100,
+          ...(input.offCode ? { source: 'off' as const, offCode: input.offCode } : {}),
           updatedAt: now,
         })
         .where(eq(foods.id, id))

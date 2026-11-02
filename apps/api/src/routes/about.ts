@@ -5,13 +5,16 @@ import type { BackupService } from '../backup/service.js';
 
 export interface AboutRouteOptions {
   backup: BackupService;
+  /** `OFF_LOOKUP_ENABLED`; the web hides "Search online" when false. */
+  offEnabled: boolean;
 }
 
 /** More → About (FR-S6). Behind the session guard, unlike `/health`, because it describes the data. */
 export async function aboutRoutes(app: FastifyInstance, options: AboutRouteOptions): Promise<void> {
   app
     .withTypeProvider<ZodTypeProvider>()
-    .get('/about', { schema: { response: { 200: aboutResponseSchema } } }, async () =>
-      options.backup.stats(),
-    );
+    .get('/about', { schema: { response: { 200: aboutResponseSchema } } }, async () => ({
+      ...options.backup.stats(),
+      offEnabled: options.offEnabled,
+    }));
 }

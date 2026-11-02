@@ -22,6 +22,7 @@ import { GoalService } from './goals/service.js';
 import { InsightsService } from './insights/service.js';
 import { MealSlotService } from './mealSlots/service.js';
 import { MealTemplateService } from './mealTemplates/service.js';
+import { OffLookupService } from './off/service.js';
 import { aboutRoutes } from './routes/about.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
@@ -34,6 +35,7 @@ import { healthRoutes } from './routes/health.js';
 import { insightsRoutes } from './routes/insights.js';
 import { mealSlotRoutes } from './routes/mealSlots.js';
 import { mealTemplateRoutes } from './routes/mealTemplates.js';
+import { offRoutes } from './routes/off.js';
 import { settingsRoutes } from './routes/settings.js';
 import { waterRoutes } from './routes/water.js';
 import { weightRoutes } from './routes/weights.js';
@@ -140,6 +142,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     categories: categoryService,
     mealSlots: mealSlotService,
   });
+  const offService = new OffLookupService({
+    enabled: config.offLookupEnabled,
+    userAgent: config.offUserAgent,
+    logger: app.log,
+  });
 
   await app.register(
     async (api) => {
@@ -166,7 +173,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         await guarded.register(weightRoutes, { weights: weightService });
         await guarded.register(insightsRoutes, { insights: insightsService });
         await guarded.register(backupRoutes, { backup: backupService });
-        await guarded.register(aboutRoutes, { backup: backupService });
+        await guarded.register(aboutRoutes, {
+          backup: backupService,
+          offEnabled: config.offLookupEnabled,
+        });
+        await guarded.register(offRoutes, { off: offService });
       });
     },
     { prefix: '/api' },

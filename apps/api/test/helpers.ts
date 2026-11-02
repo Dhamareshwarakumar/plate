@@ -20,6 +20,8 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     sessionTtlMs: 30 * 24 * 60 * 60 * 1000,
     webDistDir: undefined,
     logLevel: 'silent',
+    offLookupEnabled: true,
+    offUserAgent: 'Plate/test',
     ...overrides,
   };
 }

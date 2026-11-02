@@ -188,6 +188,41 @@ describe('foods', () => {
     expect(updated.portions.map((p) => p.label)).toEqual(['big']);
   });
 
+  it('records Open Food Facts provenance when created from a lookup result', async () => {
+    const food = await createFood({ name: 'Twix', brand: 'Twix', offCode: '5000159484695' });
+    expect(food).toMatchObject({ source: 'off', offCode: '5000159484695' });
+    expect((await api('GET', `/api/foods/${food.id}`)).json()).toEqual(food);
+
+    // A manual edit without a code keeps the provenance.
+    const edited = await api('PUT', `/api/foods/${food.id}`, {
+      name: 'Twix bar',
+      brand: 'Twix',
+      per100: { ...per100, kcal: 480 },
+    });
+    expect(edited.statusCode, edited.body).toBe(200);
+    expect(edited.json<Food>()).toMatchObject({ source: 'off', offCode: '5000159484695' });
+
+    // Applying a lookup result to a manual food links it.
+    const manual = await createFood({ name: 'Oat drink' });
+    expect(manual).toMatchObject({ source: 'manual', offCode: null });
+    const linked = await api('PUT', `/api/foods/${manual.id}`, {
+      name: 'Oat drink',
+      per100,
+      offCode: '7394376616228',
+    });
+    expect(linked.json<Food>()).toMatchObject({ source: 'off', offCode: '7394376616228' });
+
+    const bad = await api('PUT', `/api/foods/${manual.id}`, {
+      name: 'Oat drink',
+      per100,
+      offCode: 'x',
+    });
+    expect(bad.statusCode).toBe(400);
+    expect((bad.json().error.details as { path: string }[]).map((d) => d.path)).toEqual([
+      'offCode',
+    ]);
+  });
+
   it('lists with filters and hides archived foods by default', async () => {
     const fruit = (await api('GET', '/api/categories')).json<Category[]>()[0]!;
     const banana = await createFood({ categoryId: fruit.id });

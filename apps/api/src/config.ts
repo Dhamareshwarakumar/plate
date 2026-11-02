@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
+import { APP_VERSION } from './version.js';
 
 const booleanString = z
   .enum(['true', 'false', '1', '0'])
@@ -28,6 +29,13 @@ const envSchema = z.object({
   /** Directory with the built web app. When unset, only the API is served. */
   WEB_DIST_DIR: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  /**
+   * The optional "Search online" proxy to Open Food Facts (FR-F5). false = the app makes no
+   * outbound network calls at all (NFR-7).
+   */
+  OFF_LOOKUP_ENABLED: booleanString.default(true),
+  /** Identifies this install to Open Food Facts; defaults to `Plate/<version> (self-hosted diet ledger)`. */
+  OFF_USER_AGENT: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -45,6 +53,8 @@ export interface AppConfig {
   sessionTtlMs: number;
   webDistDir: string | undefined;
   logLevel: Env['LOG_LEVEL'];
+  offLookupEnabled: boolean;
+  offUserAgent: string;
 }
 
 export class ConfigError extends Error {
@@ -90,5 +100,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     sessionTtlMs: env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
     webDistDir: env.WEB_DIST_DIR,
     logLevel: env.LOG_LEVEL,
+    offLookupEnabled: env.OFF_LOOKUP_ENABLED,
+    offUserAgent: env.OFF_USER_AGENT ?? `Plate/${APP_VERSION} (self-hosted diet ledger)`,
   };
 }
