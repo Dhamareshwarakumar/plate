@@ -348,6 +348,7 @@ and push features therefore run in a secure context in production. Dev stays on 
 secure context for these APIs).
 
 ### 10a — Reviewer follow-ups
+
 Work through the non-blocking notes in `.agents/tasks/plate-phases/phase2-review.md` …
 `phase9-review.md`. Fix every note that describes a real defect or missing invalidation; for notes
 that are opinions, decide and record in DECISIONS.md. Known items: dish/meal-template query caches
@@ -358,6 +359,7 @@ keyboard fallback with move up/down buttons kept for accessibility). Each fix ge
 code is testable.
 
 ### 10b — Camera barcode scanning (extends FR-F5)
+
 - Web only; the API already has `GET off/product/:code` and stores `foods.off_code`.
 - `features/scan/`: `BarcodeScannerSheet` (full-height Sheet: live rear-camera preview via
   `getUserMedia({ video: { facingMode: 'environment' } })`, viewfinder overlay, torch toggle when
@@ -377,6 +379,7 @@ code is testable.
   machine; screenshots of the sheet states (camera mocked with a canvas stream in Playwright).
 
 ### 10c — Reminders via Web Push (new requirement FR-N)
+
 - **FR-N1** Reminders are configured in More → Reminders: master switch; per active meal slot a
   time (default: the slot's window end) and "only if nothing is logged in this meal"; a weigh-in
   reminder time (default 07:30, only if no weight today); optional water nudge at a time if below
@@ -390,8 +393,8 @@ code is testable.
   and README.
 - API: dependency `web-push` (justify in DECISIONS.md). VAPID key pair generated on first start and
   stored in `settings` (`push.vapid`), public key served by `GET push/vapid-public-key`. Tables
-  `push_subscriptions(id, endpoint unique, p256dh, auth, device_label, timezone, created_at,
-  last_used_at, failures)` and `reminder_sends(id, reminder_key, day, sent_at)` (one send per
+  `push_subscriptions` (id, endpoint unique, p256dh, auth, device_label, timezone, created_at,
+  last_used_at, failures) and `reminder_sends` (id, reminder_key, day, sent_at; one send per
   reminder per local day); migration `0006_push_reminders`. Reminder config in `settings`
   (`reminders`), zod schema in shared (`reminders.ts`, with `timezone` as an IANA string validated
   via `Intl.supportedValuesOf('timeZone')` fallback to try/catch `Intl.DateTimeFormat`). Routes:
@@ -413,5 +416,6 @@ code is testable.
 - README: short "Reminders" section (how to enable per device, iOS note, what leaves the Pi).
 
 ### Definition of done for Phase 10
+
 Same as AGENTS.md: `pnpm check` green, `pnpm e2e` green, screenshots inspected, docs/DECISIONS
 updated, committed on `main`, and `git push origin main` at the end (the user deploys from GitHub).
