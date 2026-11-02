@@ -1,33 +1,70 @@
-import { Moon, Plus, Sun, SunMoon } from 'lucide-react';
+import { Keyboard, Moon, Plus, Sun, SunMoon } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { BrandMark } from '@/components/brand-mark';
+import { PageSkeleton } from '@/components/shell-skeleton';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { focusMainIfUnfocused } from '@/components/ui/focus';
+import { Kbd } from '@/components/ui/kbd';
 import { cn } from '@/lib/cn';
 import { todayKey } from '@/lib/dates';
+import { useKeyboardShortcuts } from '@/lib/keyboard';
 import { useTheme, type ThemePreference } from '@/lib/theme';
+import { useMediaQuery } from '@/lib/use-media-query';
+import { lazyNamed } from '../lazy';
 import { NAV_ITEMS } from './nav';
+
+// Desktop-only help: loaded with the Sheet stack on first use, not in the shell's eager payload.
+const ShortcutsHelp = lazyNamed(() => import('./ShortcutsHelp'), 'ShortcutsHelp');
 
 /**
  * Responsive frame: a left sidebar from `lg` up, a bottom tab bar below. Pages render in <main>
  * with room reserved for the tab bar so content is never hidden behind it.
  */
 export function AppShell() {
+  const location = useLocation();
+  const desktop = useMediaQuery('(min-width: 1024px)');
+  const [helpOpen, setHelpOpen] = useState(false);
+  // Mounted on first open and kept, so the close animation plays and the chunk loads once.
+  const [helpMounted, setHelpMounted] = useState(false);
+  const showHelp = () => {
+    setHelpMounted(true);
+    setHelpOpen(true);
+  };
+
+  // `?` lists the shortcuts (DESIGN §9); desktop only, like every other shortcut.
+  useKeyboardShortcuts({ '?': showHelp }, desktop);
+
+  // When the element that had focus disappears with the previous page (an editor's close button,
+  // the login form), focus falls to <body>; park it on <main> so the next Tab starts in the page.
+  useEffect(() => {
+    focusMainIfUnfocused();
+  }, [location.pathname]);
+
   return (
     <div className="min-h-dvh lg:flex">
-      <Sidebar />
+      <Sidebar onShowShortcuts={showHelp} />
       <main
         id="main"
-        className="pt-safe gutter lg:gutter-lg mx-auto w-full max-w-[75rem] flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-10"
+        tabIndex={-1}
+        className="pt-safe gutter lg:gutter-lg mx-auto w-full max-w-[75rem] flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] outline-none lg:pb-10"
       >
-        <Outlet />
+        <Suspense fallback={<PageSkeleton />}>
+          <Outlet />
+        </Suspense>
       </main>
       <TabBar />
+      {helpMounted ? (
+        <Suspense fallback={null}>
+          <ShortcutsHelp open={helpOpen} onOpenChange={setHelpOpen} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }
 
-function Sidebar() {
+function Sidebar({ onShowShortcuts }: { onShowShortcuts: () => void }) {
   const location = useLocation();
   return (
     <aside className="border-border bg-surface sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r px-3 py-5 lg:flex">
@@ -67,7 +104,18 @@ function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto px-1">
+      <div className="mt-auto flex flex-col gap-1 px-1">
+        <Button
+          variant="ghost"
+          className="text-fg-muted w-full justify-start"
+          onClick={onShowShortcuts}
+        >
+          <Keyboard className="size-5" aria-hidden="true" />
+          Shortcuts
+          <span className="ml-auto" aria-hidden="true">
+            <Kbd>?</Kbd>
+          </span>
+        </Button>
         <ThemeCycleButton />
       </div>
     </aside>

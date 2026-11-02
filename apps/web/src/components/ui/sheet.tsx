@@ -1,7 +1,8 @@
 import { ChevronLeft, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { rememberOpener, restoreFocus } from './focus';
 
 export interface SheetProps {
   open: boolean;
@@ -41,6 +42,8 @@ export function Sheet({
   headerExtra,
   autoFocusFirstField = true,
 }: SheetProps) {
+  // Focus goes back to whatever opened the sheet, or to <main> when that element is gone (DESIGN §10).
+  const openerRef = useRef<HTMLElement | null>(null);
   return (
     <Dialog.Root
       open={open}
@@ -50,6 +53,7 @@ export function Sheet({
         <Dialog.Overlay className="bg-overlay data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out fixed inset-0 z-50 backdrop-blur-[2px]" />
         <Dialog.Content
           onOpenAutoFocus={(e) => {
+            rememberOpener(openerRef);
             // Let the marked field, else the first field (not the close button), take focus.
             const root = e.currentTarget as HTMLElement;
             const marked = root.querySelector<HTMLElement>('[data-autofocus]');
@@ -66,6 +70,7 @@ export function Sheet({
               root.focus();
             }
           }}
+          onCloseAutoFocus={(e) => restoreFocus(openerRef, e)}
           className={cn(
             'bg-surface text-fg fixed z-50 flex flex-col outline-none',
             // Phone: bottom sheet.

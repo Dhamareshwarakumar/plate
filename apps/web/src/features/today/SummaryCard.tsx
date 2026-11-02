@@ -42,6 +42,13 @@ function GoalSummary({ day, goal, className }: SummaryCardProps & { goal: Goal }
 
   return (
     <section aria-label="Day summary" className={cn(CARD, className)}>
+      {/* Announced once per change with the settled numbers; the ring itself is a progressbar whose
+          children are presentational and whose count-up mutates text every frame (DESIGN §10). */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {formatKcal(totals.kcal)} of {formatKcal(goal.kcal)} kcal,{' '}
+        {formatKcal(Math.abs(remainingKcal))} {over ? 'over' : 'left'}
+        {statusLabel ? `, ${statusLabel.toLowerCase()}` : ''}
+      </p>
       <div className="flex flex-col items-center">
         <Ring
           value={totals.kcal}
@@ -62,7 +69,6 @@ function GoalSummary({ day, goal, className }: SummaryCardProps & { goal: Goal }
             'tabular mt-3 flex items-center gap-2 text-sm font-medium',
             over ? 'text-over-fg' : 'text-fg-muted',
           )}
-          aria-live="polite"
         >
           <span>
             {formatKcal(Math.abs(remainingKcal))} {over ? 'over' : 'left'}
@@ -137,6 +143,9 @@ function NoGoalSummary({ day, className }: SummaryCardProps) {
 
   return (
     <section aria-label="Day summary" className={cn(CARD, className)}>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {formatKcal(totals.kcal)} kcal eaten
+      </p>
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-fg-muted text-xs font-medium tracking-wide uppercase">Eaten</p>
