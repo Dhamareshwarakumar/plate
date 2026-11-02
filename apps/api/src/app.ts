@@ -18,6 +18,7 @@ import { DishService } from './dishes/service.js';
 import { errorBody, errorHandler } from './errors.js';
 import { FoodService } from './foods/service.js';
 import { GoalService } from './goals/service.js';
+import { InsightsService } from './insights/service.js';
 import { MealSlotService } from './mealSlots/service.js';
 import { MealTemplateService } from './mealTemplates/service.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
@@ -27,6 +28,7 @@ import { dishRoutes } from './routes/dishes.js';
 import { foodRoutes } from './routes/foods.js';
 import { goalRoutes } from './routes/goals.js';
 import { healthRoutes } from './routes/health.js';
+import { insightsRoutes } from './routes/insights.js';
 import { mealSlotRoutes } from './routes/mealSlots.js';
 import { mealTemplateRoutes } from './routes/mealTemplates.js';
 import { settingsRoutes } from './routes/settings.js';
@@ -123,6 +125,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   const dishService = new DishService(db, foodService);
   const mealTemplateService = new MealTemplateService(db, diaryService);
+  const insightsService = new InsightsService(db, {
+    goals: goalService,
+    settings: settingsService,
+    weights: weightService,
+  });
 
   await app.register(
     async (api) => {
@@ -147,6 +154,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         });
         await guarded.register(waterRoutes, { water: waterService });
         await guarded.register(weightRoutes, { weights: weightService });
+        await guarded.register(insightsRoutes, { insights: insightsService });
       });
     },
     { prefix: '/api' },

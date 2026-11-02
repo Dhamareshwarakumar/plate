@@ -48,7 +48,7 @@ export interface DiaryExportRow {
 }
 
 /** Totals as SQL: `sum(value_100 * quantity / 100)`; the four required macros default to 0. */
-const totalsSelection = {
+export const totalsSelection = {
   kcal: sql<number>`coalesce(sum(${diaryEntries.kcal100} * ${diaryEntries.quantity} / 100), 0)`,
   protein: sql<number>`coalesce(sum(${diaryEntries.protein100} * ${diaryEntries.quantity} / 100), 0)`,
   carbs: sql<number>`coalesce(sum(${diaryEntries.carbs100} * ${diaryEntries.quantity} / 100), 0)`,
