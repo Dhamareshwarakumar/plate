@@ -162,7 +162,9 @@ function TodayView({ day }: { day: string }) {
   return (
     <>
       <InitialPasswordBanner />
-      <div className="lg:grid lg:grid-cols-[22.5rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+      {/* Rows: header, then the meals. `auto 1fr` keeps the sticky aside (which spans both rows) from
+          stretching the header row when the aside is taller than the meals, e.g. on an empty day. */}
+      <div className="lg:grid lg:grid-cols-[22.5rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-8">
         <div className="lg:col-start-2 lg:row-start-1">
           <DayHeader day={day} onNavigate={goTo} onLog={() => openLog()} />
         </div>

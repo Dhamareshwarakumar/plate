@@ -24,13 +24,22 @@ function registeredOptions(): RegisterSWOptions {
   return options;
 }
 
+/** jsdom has no service worker container; a bare EventTarget stands in for it. */
+function stubServiceWorkerContainer(): EventTarget {
+  const container = new EventTarget();
+  vi.stubGlobal('navigator', { ...navigator, serviceWorker: container });
+  return container;
+}
+
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
 describe('registerPwa', () => {
   it('shows a persistent toast whose Update action activates the waiting worker', () => {
+    stubServiceWorkerContainer();
     registerPwa();
     expect(mocks.registerSW).toHaveBeenCalledTimes(1);
     expect(mocks.toast).not.toHaveBeenCalled();
@@ -46,6 +55,20 @@ describe('registerPwa', () => {
 
     options.action.onClick();
     expect(mocks.updateSW).toHaveBeenCalledWith(true);
+  });
+
+  it('reloads once the new worker controls the page, and only once', () => {
+    const container = stubServiceWorkerContainer();
+    const reload = vi.fn();
+    registerPwa({ reload });
+    registeredOptions().onNeedRefresh?.();
+    const [, options] = mocks.toast.mock.calls[0] as [string, ToastOptions];
+
+    options.action.onClick();
+    expect(reload).not.toHaveBeenCalled();
+    container.dispatchEvent(new Event('controllerchange'));
+    container.dispatchEvent(new Event('controllerchange'));
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 
   it('polls the registration for a new build every hour', () => {
