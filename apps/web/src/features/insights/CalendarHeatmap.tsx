@@ -48,14 +48,19 @@ export function CalendarHeatmap({ daily, from, to, today, weekStartsOn }: Calend
   } else if (rangeDays({ from, to }) <= 7) {
     const days: string[] = [];
     for (let d = from; d <= to; d = shiftDayKey(d, 1)) days.push(d);
+    // Letters and cells are separate rows: in one auto-placed grid a range shorter than a week
+    // would put the first cells on the letter row. Both rows keep the week's seven columns so a
+    // short custom range renders at the same cell size, left-aligned.
     body = (
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {days.map((d) => (
-          <span key={d} className="text-fg-faint text-[0.6875rem] font-medium" aria-hidden="true">
-            {format(parseDayKey(d), 'EEEEE')}
-          </span>
-        ))}
-        {days.map((d) => cell(d, 'month'))}
+      <div className="flex flex-col gap-1 text-center">
+        <div className="grid grid-cols-7 gap-1" aria-hidden="true">
+          {days.map((d) => (
+            <span key={d} className="text-fg-faint text-[0.6875rem] font-medium">
+              {format(parseDayKey(d), 'EEEEE')}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">{days.map((d) => cell(d, 'month'))}</div>
       </div>
     );
   } else {

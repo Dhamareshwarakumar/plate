@@ -18,6 +18,10 @@ const daysAgo = (n) => dayKey(new Date(now.getFullYear(), now.getMonth(), now.ge
 
 if (!process.env.SKIP_SEED) {
   execFileSync(process.execPath, ['tools/seed-demo.mjs'], { stdio: 'inherit' });
+  // The seed ends with the per-minute API rate limit nearly spent; let the window reset so the
+  // browser's first requests do not land on 429s.
+  console.log('waiting 61 s for the rate-limit window to reset…');
+  await new Promise((resolve) => setTimeout(resolve, 61_000));
 }
 
 const browser = await chromium.launch({ channel: 'chrome' });
@@ -132,6 +136,13 @@ await page.goto(`${BASE}/insights?range=week&from=${daysAgo(7)}`);
 await page.waitForTimeout(1200);
 await showCard(page, 'Calendar');
 await page.screenshot({ path: out('63b-heatmap-week') });
+
+// A three-day custom range: the weekday letters must stay above their cells.
+await page.goto(`${BASE}/insights?range=custom&from=${daysAgo(2)}&to=${TODAY}`);
+await page.waitForTimeout(1200);
+await showCard(page, 'Calendar');
+await page.screenshot({ path: out('63c-heatmap-custom-3d') });
+
 await page
   .getByRole('link', { name: /: (on target|under|over|no goal|not logged)/ })
   .first()

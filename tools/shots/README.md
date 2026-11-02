@@ -46,7 +46,7 @@ seeded weights and goal in the dev database.
 
 ```sh
 node tools/seed-demo.mjs                  # ~35 days of meals, weigh-ins and water ending today, through the API (re-runnable; keeps the food library)
-node tools/shots/phase6-insights.mjs      # Insights: week, last month (full page), macros split, heatmap (month, week), weight vs intake, top foods by kcal, by meal, custom range sheet, 3M, year (weekly bars + year strip), empty range, desktop month/3M/year, tooltip
+node tools/shots/phase6-insights.mjs      # Insights: week, last month (full page), macros split, heatmap (month, week, 3-day custom), weight vs intake, top foods by kcal, by meal, custom range sheet, 3M, year (weekly bars + year strip), empty range, desktop month/3M/year, tooltip
 ```
 
 `phase6-insights.mjs` runs `tools/seed-demo.mjs` first (skip with `SKIP_SEED=1` when the database is already

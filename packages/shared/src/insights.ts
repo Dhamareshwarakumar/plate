@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { dayKeySchema, daysBetween, shiftDayKey, weekStartKey } from './days.js';
-import { idSchema } from './foods.js';
+import { foodKindSchema, idSchema } from './foods.js';
 import { dayStatusSchema, type DayStatus } from './goals.js';
 import { nutrientsSchema } from './nutrition.js';
 import type { WeekStart } from './settings.js';
@@ -79,9 +79,14 @@ export type InsightsSummary = z.infer<typeof insightsSummarySchema>;
 
 // ---------- top foods (FR-I6) ----------
 
-/** Library foods are grouped by id; ad-hoc entries by their (lower-cased) name, with a null id. */
+/**
+ * Library foods are grouped by id; ad-hoc entries by their (lower-cased) name, with a null id.
+ * `kind` tells the client where the food is edited (`/foods/<id>` or `/foods/dishes/<id>`);
+ * it is null for ad-hoc entries.
+ */
 export const topFoodSchema = z.object({
   foodId: idSchema.nullable(),
+  kind: foodKindSchema.nullable(),
   name: z.string(),
   count: z.number().int().positive(),
   kcal: z.number(),

@@ -12,6 +12,10 @@ export interface TopFoodsProps {
 
 type Measure = 'count' | 'kcal';
 
+/** Dishes are edited through their ingredients, on their own route (see app/router.tsx). */
+const editPath = (foodId: number, kind: TopFood['kind']) =>
+  kind === 'dish' ? `/foods/dishes/${foodId}` : `/foods/${foodId}`;
+
 const MEASURE_OPTIONS = [
   { value: 'count', label: 'count' },
   { value: 'kcal', label: 'kcal' },
@@ -78,7 +82,7 @@ function TopFoodRow({
         <span className="text-fg-faint tabular w-5 shrink-0 text-right text-xs">{rank}.</span>
         {food.foodId !== null ? (
           <Link
-            to={`/foods/${food.foodId}`}
+            to={editPath(food.foodId, food.kind)}
             className="text-fg min-w-0 flex-1 truncate font-medium hover:underline"
           >
             {food.name}

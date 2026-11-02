@@ -4,6 +4,7 @@ import {
   type BySlot,
   type DailyAggregate,
   type DayStatus,
+  type Dish,
   type Food,
   type InsightsSummary,
   type MealSlot,
@@ -368,8 +369,39 @@ describe('top foods (FR-I6)', () => {
     expect(oatsRow.foodId).toBe(oats.id);
     expect(oatsRow.kcal).toBeCloseTo(5 * 972.5 + 5 * 778 + 2723);
     const bar = top.byCount[3]!;
-    expect(bar).toMatchObject({ foodId: null, name: 'Protein bar', count: 2 });
+    expect(bar).toMatchObject({ foodId: null, kind: null, name: 'Protein bar', count: 2 });
     expect(bar.kcal).toBeCloseTo(400);
+    expect(oatsRow.kind).toBe('food');
+  });
+
+  it('tells dishes from foods so the client links the right editor', async () => {
+    await seedFortnight();
+    const created = await api('POST', '/api/dishes', {
+      name: 'Banana porridge',
+      ingredients: [
+        { foodId: oats.id, amount: 100 },
+        { foodId: banana.id, amount: 100 },
+      ],
+      cookedWeight: 400,
+      servings: 2,
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const dish = created.json<Dish>();
+    // 478 kcal of raw ingredients over 400 g cooked → 119.5 kcal/100 g; 200 g logged → 239 kcal.
+    await log(day(12), 'Snacks', '16:00', { foodId: dish.id, quantity: 200 });
+
+    const top = await getJson<TopFoods>(`/api/insights/top-foods?${RANGE}`);
+    const porridge = top.byCount.find((f) => f.name === 'Banana porridge')!;
+    expect(porridge).toMatchObject({ foodId: dish.id, kind: 'dish', count: 1 });
+    expect(porridge.kcal).toBeCloseTo(239);
+    expect(top.byKcal.find((f) => f.name === 'Banana porridge')).toMatchObject({ kind: 'dish' });
+    expect(top.byCount.map((f) => [f.name, f.kind])).toEqual([
+      ['Oats', 'food'],
+      ['Chicken breast', 'food'],
+      ['Banana', 'food'],
+      ['Protein bar', null],
+      ['Banana porridge', 'dish'],
+    ]);
   });
 
   it('uses the food name as it is now, counts only the range, and caps at ten', async () => {

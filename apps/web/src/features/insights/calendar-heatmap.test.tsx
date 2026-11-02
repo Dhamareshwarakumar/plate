@@ -64,6 +64,23 @@ describe('CalendarHeatmap', () => {
     expect(screen.queryByRole('link', { name: /19 October/ })).toBeNull();
   });
 
+  it('keeps the weekday letters above the cells for a custom range shorter than a week', () => {
+    renderHeatmap({ from: '2025-10-17', to: '2025-10-19' });
+    const links = screen.getAllByRole('link');
+    expect(links.map((l) => l.getAttribute('href'))).toEqual([
+      '/today/2025-10-17',
+      '/today/2025-10-18',
+      '/today/2025-10-19',
+    ]);
+    // Letters and cells are two separate rows, so no cell can land on the letter row.
+    const cellRow = links[0]!.parentElement!;
+    expect(cellRow.children).toHaveLength(3);
+    const letterRow = cellRow.previousElementSibling!;
+    expect(letterRow.getAttribute('aria-hidden')).toBe('true');
+    expect(Array.from(letterRow.children).map((c) => c.textContent)).toEqual(['F', 'S', 'S']);
+    expect(letterRow.querySelector('a')).toBeNull();
+  });
+
   it('shows one grid per month for a quarter and the year strip for a year', () => {
     renderHeatmap({ from: '2025-08-01', to: '2025-10-31' });
     expect(screen.getByRole('region', { name: 'August 2025' })).toBeTruthy();

@@ -9,6 +9,7 @@ import {
   ZERO_NUTRIENTS,
   type BySlot,
   type DailyAggregate,
+  type FoodKind,
   type InsightsSummary,
   type SlotAverage,
   type TopFood,
@@ -33,6 +34,8 @@ export interface InsightsServiceDeps {
 const topFoodGroup = sql<string>`coalesce(cast(${diaryEntries.foodId} as text), 'adhoc:' || lower(${diaryEntries.nameSnapshot}))`;
 const topFoodName = sql<string>`coalesce(min(${foods.name}), min(${diaryEntries.nameSnapshot}))`;
 const topFoodId = sql<number | null>`min(${diaryEntries.foodId})`;
+/** Null for ad-hoc groups (no joined food row). */
+const topFoodKind = sql<FoodKind | null>`min(${foods.kind})`;
 
 /**
  * Range aggregations for the Insights screen (FR-I1–I7). Totals are summed in SQL from the
@@ -102,6 +105,7 @@ export class InsightsService {
       this.db
         .select({
           foodId: topFoodId,
+          kind: topFoodKind,
           name: topFoodName,
           count: count(),
           kcal: totalsSelection.kcal,
@@ -112,10 +116,17 @@ export class InsightsService {
         .groupBy(topFoodGroup);
     const toTopFood = (row: {
       foodId: number | null;
+      kind: FoodKind | null;
       name: string;
       count: number;
       kcal: number;
-    }): TopFood => ({ foodId: row.foodId, name: row.name, count: row.count, kcal: row.kcal });
+    }): TopFood => ({
+      foodId: row.foodId,
+      kind: row.kind,
+      name: row.name,
+      count: row.count,
+      kcal: row.kcal,
+    });
     return {
       byCount: base()
         .orderBy(desc(count()), desc(totalsSelection.kcal), asc(topFoodName))
