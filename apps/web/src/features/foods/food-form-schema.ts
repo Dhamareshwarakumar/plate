@@ -3,8 +3,10 @@ import {
   FOOD_NAME_MAX,
   PORTION_LABEL_MAX,
   PORTIONS_MAX,
+  type AiEstimateFoodResponse,
   type Food,
   type FoodInput,
+  type NutrientsPer100,
   type OffResult,
 } from '@plate/shared';
 import { z } from 'zod';
@@ -174,6 +176,67 @@ export function offResultToFormValues(result: OffResult): OffPrefill {
     sodiumMg: fmt(result.per100.sodiumMg),
     offCode: result.code,
   };
+}
+
+export type EstimatePrefill = Pick<
+  FoodFormValues,
+  | 'basis'
+  | 'kcal'
+  | 'protein'
+  | 'carbs'
+  | 'fat'
+  | 'fiber'
+  | 'sugar'
+  | 'saturatedFat'
+  | 'sodiumMg'
+  | 'portions'
+>;
+
+/**
+ * The fields an accepted AI estimate overwrites (Phase 11): nutrition, basis and portions; name,
+ * brand, category and a barcode stay as typed.
+ */
+export function estimateToFormValues(result: AiEstimateFoodResponse): EstimatePrefill {
+  return {
+    basis: result.basis,
+    kcal: fmt(result.per100.kcal),
+    protein: fmt(result.per100.protein),
+    carbs: fmt(result.per100.carbs),
+    fat: fmt(result.per100.fat),
+    fiber: fmt(result.per100.fiber),
+    sugar: fmt(result.per100.sugar),
+    saturatedFat: fmt(result.per100.saturatedFat),
+    sodiumMg: fmt(result.per100.sodiumMg),
+    portions: result.portions.map((p) => ({ label: p.label, amount: String(p.amount) })),
+  };
+}
+
+const NUTRITION_FIELDS = [
+  'kcal',
+  'protein',
+  'carbs',
+  'fat',
+  'fiber',
+  'sugar',
+  'saturatedFat',
+  'sodiumMg',
+] as const;
+
+/**
+ * True while the eight nutrition fields still hold exactly the estimate (`'4.1'` equals 4.1, an
+ * empty optional equals null): the "Estimated by AI" notice shows and the save sends
+ * `estimated: true`. Any edited value turns the food into a manual one.
+ */
+export function per100Equals(
+  values: Pick<FoodFormValues, (typeof NUTRITION_FIELDS)[number]>,
+  per100: NutrientsPer100,
+): boolean {
+  return NUTRITION_FIELDS.every((key) => {
+    const typed = parseDecimal(values[key]);
+    const expected = per100[key];
+    if (expected === null) return typed === null;
+    return typed !== null && !Number.isNaN(typed) && typed === expected;
+  });
 }
 
 /** Maps API validation paths (`per100.kcal`, `portions.1.amount`) onto form field names. */

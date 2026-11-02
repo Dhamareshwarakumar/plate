@@ -1,4 +1,11 @@
-import { checkMacroSanity, type Category, type Food, type OffResult } from '@plate/shared';
+import {
+  checkMacroSanity,
+  type AiEstimateFoodResponse,
+  type Category,
+  type Food,
+  type NutrientsPer100,
+  type OffResult,
+} from '@plate/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowDown,
@@ -8,10 +15,11 @@ import {
   Globe,
   GripVertical,
   Plus,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { Reorder, useDragControls } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import {
   Controller,
   useFieldArray,
@@ -21,6 +29,7 @@ import {
   type UseFormReturn,
 } from 'react-hook-form';
 import { toast } from 'sonner';
+import { lazyNamed } from '@/app/lazy';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -30,12 +39,23 @@ import { Select } from '@/components/ui/select';
 import { cn } from '@/lib/cn';
 import {
   EMPTY_FOOD_FORM,
+  estimateToFormValues,
   foodFormSchema,
   fromFood,
   offResultToFormValues,
+  per100Equals,
   type FoodFormValues,
 } from './food-form-schema';
 import { OffLookupSheet } from './OffLookupSheet';
+
+// Loaded the first time "Estimate with AI" is pressed (Phase 11); its own chunk.
+const AiEstimateSheet = lazyNamed(() => import('@/features/ai/AiEstimateSheet'), 'AiEstimateSheet');
+
+/** Passed with the values on submit; `estimated` tells the API to record `source = 'ai'`. */
+export interface FoodSubmitMeta {
+  /** True when the nutrition fields still hold an accepted AI estimate unchanged. */
+  estimated: boolean;
+}
 
 export interface FoodFormProps {
   food?: Food | undefined;
@@ -44,7 +64,11 @@ export interface FoodFormProps {
   initialName?: string | undefined;
   /** A scanned barcode Open Food Facts did not know (log flow → "Create food manually"); kept on the food. */
   initialOffCode?: string | undefined;
-  onSubmit: (values: FoodFormValues, intent: 'save' | 'save-and-add') => Promise<void>;
+  onSubmit: (
+    values: FoodFormValues,
+    intent: 'save' | 'save-and-add',
+    meta: FoodSubmitMeta,
+  ) => Promise<void>;
   /** Called by the parent with the form instance so it can set server-side field errors. */
   formRef?: (form: UseFormReturn<FoodFormValues>) => void;
   submitting: boolean;
@@ -55,6 +79,8 @@ export interface FoodFormProps {
   hideSaveAndAdd?: boolean;
   /** Shows "Search online" (FR-F5); false when the deployment disabled the Open Food Facts proxy. */
   offEnabled?: boolean;
+  /** Shows "Estimate with AI" (Phase 11); false unless the server has an AI provider configured. */
+  aiEnabled?: boolean;
 }
 
 export function FoodForm({
@@ -69,6 +95,7 @@ export function FoodForm({
   secondaryActions,
   hideSaveAndAdd = false,
   offEnabled = false,
+  aiEnabled = false,
 }: FoodFormProps) {
   const form = useForm<FoodFormValues>({
     resolver: zodResolver(foodFormSchema),
@@ -93,12 +120,28 @@ export function FoodForm({
   // `useWatch` rather than `form.watch()`: the React Compiler cannot memoize around `watch`.
   const basis = useWatch({ control: form.control, name: 'basis' });
   const offCode = useWatch({ control: form.control, name: 'offCode' });
-  const [kcal, protein, carbs, fat] = useWatch({
+  const name = useWatch({ control: form.control, name: 'name' });
+  const brand = useWatch({ control: form.control, name: 'brand' });
+  const [kcal, protein, carbs, fat, fiber, sugar, saturatedFat, sodiumMg] = useWatch({
     control: form.control,
-    name: ['kcal', 'protein', 'carbs', 'fat'],
+    name: ['kcal', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'saturatedFat', 'sodiumMg'],
   });
   const sanity = sanityHint({ kcal, protein, carbs, fat });
   const [lookupOpen, setLookupOpen] = useState(false);
+  const [estimateOpen, setEstimateOpen] = useState(false);
+  // Mounted on first use (lazy chunk) and kept so the sheet animates closed.
+  const [estimateMounted, setEstimateMounted] = useState(false);
+  // The per-100 values an accepted estimate wrote (or the saved estimate of an existing food).
+  // While the fields still equal them the notice shows and the save keeps `source = 'ai'`.
+  const [appliedEstimate, setAppliedEstimate] = useState<NutrientsPer100 | null>(
+    food?.estimatedAt ? food.per100 : null,
+  );
+  const stillEstimated =
+    appliedEstimate !== null &&
+    per100Equals(
+      { kcal, protein, carbs, fat, fiber, sugar, saturatedFat, sodiumMg },
+      appliedEstimate,
+    );
 
   /** Overwrites name, brand and every nutrition field; category, basis and portions stay as set. */
   const applyOffResult = (result: OffResult) => {
@@ -118,11 +161,31 @@ export function FoodForm({
     toast.success(`Barcode ${code} kept on this food`);
   };
 
+  /** Overwrites nutrition, basis and portions with the accepted estimate; name and brand stay. */
+  const applyEstimate = (result: AiEstimateFoodResponse) => {
+    form.reset(
+      { ...form.getValues(), ...estimateToFormValues(result) },
+      { keepDefaultValues: true },
+    );
+    const optional = [
+      result.per100.fiber,
+      result.per100.sugar,
+      result.per100.saturatedFat,
+      result.per100.sodiumMg,
+    ];
+    if (optional.some((v) => v !== null)) setMoreOpen(true);
+    setAppliedEstimate(result.per100);
+    toast.success('Estimated — check the values before saving');
+  };
+
   const submit = (intent: 'save' | 'save-and-add') =>
     form.handleSubmit(async (values) => {
-      await onSubmit(values, intent);
+      await onSubmit(values, intent, {
+        estimated: appliedEstimate !== null && per100Equals(values, appliedEstimate),
+      });
       if (intent === 'save-and-add') {
         form.reset({ ...EMPTY_FOOD_FORM, basis: values.basis, categoryId: values.categoryId });
+        setAppliedEstimate(null);
         form.setFocus('name');
       }
     });
@@ -203,8 +266,8 @@ export function FoodForm({
         </section>
 
         <section className="flex flex-col gap-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-[14rem] flex-1">
               <h3 className="text-fg-muted text-xs font-semibold tracking-wide uppercase">
                 Nutrition per 100 {basis}
               </h3>
@@ -212,19 +275,48 @@ export function FoodForm({
                 Copy the "per 100 {basis}" column from the label.
               </p>
             </div>
-            {offEnabled ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => setLookupOpen(true)}
-              >
-                <Globe className="size-4" aria-hidden="true" />
-                Search online
-              </Button>
+            {offEnabled || aiEnabled ? (
+              // Wraps under the text on narrow screens, right-aligned, instead of squeezing it.
+              <div className="ml-auto flex shrink-0 gap-2">
+                {offEnabled ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLookupOpen(true)}
+                  >
+                    <Globe className="size-4" aria-hidden="true" />
+                    Search online
+                  </Button>
+                ) : null}
+                {aiEnabled ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={name.trim() === ''}
+                    title={name.trim() === '' ? 'Type a name first' : undefined}
+                    onClick={() => {
+                      setEstimateMounted(true);
+                      setEstimateOpen(true);
+                    }}
+                  >
+                    <Sparkles className="size-4" aria-hidden="true" />
+                    Estimate with AI
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </div>
+          {stillEstimated ? (
+            <p
+              role="status"
+              className="bg-accent-soft text-accent -mt-1 flex items-start gap-2 rounded-control px-3 py-2 text-sm"
+            >
+              <Sparkles className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>Estimated by AI; verify against a label when you can.</span>
+            </p>
+          ) : null}
           {offCode !== '' ? (
             <p className="text-fg-muted -mt-1 flex items-center gap-1.5 text-xs">
               <Barcode className="text-accent size-3.5 shrink-0" aria-hidden="true" />
@@ -438,6 +530,17 @@ export function FoodForm({
           onPick={applyOffResult}
           onKeepCode={keepOffCode}
         />
+      ) : null}
+      {aiEnabled && estimateMounted ? (
+        <Suspense fallback={null}>
+          <AiEstimateSheet
+            open={estimateOpen}
+            onOpenChange={setEstimateOpen}
+            name={name}
+            brand={brand}
+            onApply={applyEstimate}
+          />
+        </Suspense>
       ) : null}
     </>
   );

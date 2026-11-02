@@ -20,7 +20,7 @@ import {
   useUpdateFood,
 } from './api';
 import { apiPathToFormField, toFoodInput, type FoodFormValues } from './food-form-schema';
-import { FoodForm } from './FoodForm';
+import { FoodForm, type FoodSubmitMeta } from './FoodForm';
 
 /** Create (`/foods/new`) and edit (`/foods/:id`). Full page on phones, right-hand panel on desktop. */
 export function FoodEditorPage() {
@@ -84,8 +84,12 @@ export function FoodEditorPage() {
     return true;
   };
 
-  const onSubmit = async (values: FoodFormValues, intent: 'save' | 'save-and-add') => {
-    const input = toFoodInput(values);
+  const onSubmit = async (
+    values: FoodFormValues,
+    intent: 'save' | 'save-and-add',
+    meta: FoodSubmitMeta,
+  ) => {
+    const input = toFoodInput(values, { estimated: meta.estimated });
     try {
       if (isCreate) {
         const created = await createFood.mutateAsync(input);
@@ -190,6 +194,7 @@ export function FoodEditorPage() {
           submitting={submitting}
           hideSaveAndAdd={returnTo !== null}
           offEnabled={about.data?.offEnabled === true}
+          aiEnabled={about.data?.ai.enabled === true}
           secondaryActions={
             food.data ? (
               <>

@@ -66,6 +66,14 @@ export const pushKeys = {
   devices: ['push', 'devices'] as const,
 };
 
+export const aiKeys = {
+  all: ['ai'] as const,
+  /** Prefix of every usage query, whatever `dayStart` it was asked for. */
+  usageAll: ['ai', 'usage'] as const,
+  usage: (dayStart: string) => ['ai', 'usage', dayStart] as const,
+  digest: (weekStart: string) => ['ai', 'digest', weekStart] as const,
+};
+
 export const weightKeys = {
   all: ['weights'] as const,
   list: ['weights', 'list'] as const,

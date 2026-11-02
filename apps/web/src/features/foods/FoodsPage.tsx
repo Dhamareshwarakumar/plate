@@ -484,6 +484,9 @@ function FoodRow({
           <div className="flex items-center gap-2">
             <span className="text-fg truncate font-medium">{food.name}</span>
             {archived ? <Tag>Archived</Tag> : null}
+            {food.estimatedAt ? (
+              <Tag className="bg-accent-soft text-accent shrink-0">Estimated</Tag>
+            ) : null}
             {stale ? (
               <Tag className="bg-under/15 text-under-fg shrink-0 gap-1">
                 <span className="bg-under size-1.5 rounded-full" aria-hidden="true" />

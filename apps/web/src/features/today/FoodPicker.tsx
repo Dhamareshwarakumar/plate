@@ -243,6 +243,9 @@ export function FoodPicker({
                   <span className="flex items-center gap-2">
                     <span className="text-fg truncate font-medium">{food.name}</span>
                     {food.kind === 'dish' ? <Tag className="shrink-0">Dish</Tag> : null}
+                    {food.estimatedAt ? (
+                      <Tag className="bg-accent-soft text-accent shrink-0">Estimated</Tag>
+                    ) : null}
                     {food.categoryId !== null && categoryName.get(food.categoryId) ? (
                       <Tag className="shrink-0">{categoryName.get(food.categoryId)}</Tag>
                     ) : null}

@@ -3,6 +3,8 @@ import {
   dishPer100WithinBounds,
   dishRawWeight,
   servingGrams,
+  type AiRecipeResponse,
+  type AiSuggestedFood,
   type Category,
   type Dish,
   type Food,
@@ -10,9 +12,11 @@ import {
   type Nutrients,
 } from '@plate/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertTriangle, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { AlertTriangle, Plus, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Controller, useFieldArray, useForm, useWatch, type UseFormReturn } from 'react-hook-form';
+import { toast } from 'sonner';
+import { lazyNamed } from '@/app/lazy';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -29,6 +33,9 @@ import {
   parseAmount,
   type DishFormValues,
 } from './dish-form-schema';
+
+// Loaded the first time "Paste a recipe" is pressed (Phase 11); its own chunk.
+const AiRecipeSheet = lazyNamed(() => import('@/features/ai/AiRecipeSheet'), 'AiRecipeSheet');
 
 /** What the form needs to know about an ingredient food (current values, not a snapshot). */
 export interface IngredientFood {
@@ -52,10 +59,23 @@ export interface DishFormProps {
   onRecalculate?: (() => void) | undefined;
   recalculating?: boolean;
   secondaryActions?: ReactNode;
+  /** Shows "Paste a recipe" (Phase 11); false unless the server has an AI provider configured. */
+  aiEnabled?: boolean;
 }
 
 const fmt = (n: number) => String(Math.round(n * 100) / 100);
 const isNotDish = (food: Food) => food.kind !== 'dish';
+
+/** A proposed food shown like a library one until the save creates it. */
+function pendingFood(pending: AiSuggestedFood): IngredientFood {
+  return {
+    name: pending.name,
+    brand: null,
+    basis: pending.basis,
+    per100: pending.per100,
+    archivedAt: null,
+  };
+}
 
 /**
  * Dish editor (DESIGN §4.3): ingredient rows with a food picker and amounts, raw total, cooked
@@ -72,6 +92,7 @@ export function DishForm({
   onRecalculate,
   recalculating = false,
   secondaryActions,
+  aiEnabled = false,
 }: DishFormProps) {
   const form = useForm<DishFormValues>({
     resolver: zodResolver(dishFormSchema),
@@ -89,6 +110,9 @@ export function DishForm({
   // The cooked weight follows the raw total until the user types one (FR-R1).
   const [cookedAuto, setCookedAuto] = useState(mode === 'create');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [recipeOpen, setRecipeOpen] = useState(false);
+  // Mounted on first use (lazy chunk) and kept so the sheet animates closed.
+  const [recipeMounted, setRecipeMounted] = useState(false);
 
   const foodById = useMemo(() => {
     const map = new Map<number, IngredientFood>();
@@ -114,7 +138,13 @@ export function DishForm({
   }, [dish, library]);
 
   const lines = (watchedIngredients ?? []).map((row) => ({
-    food: foodById.get(row.foodId),
+    food:
+      row.foodId !== null
+        ? foodById.get(row.foodId)
+        : row.pending
+          ? pendingFood(row.pending)
+          : undefined,
+    pending: row.foodId === null && row.pending !== null,
     amount: parseAmount(row.amount),
   }));
   const rawWeight = dishRawWeight(
@@ -140,7 +170,51 @@ export function DishForm({
   // The same ingredient may appear on more than one line (oil for frying and for finishing, say);
   // the per-100 math simply sums the lines.
   const addIngredient = (food: Food) => {
-    ingredients.append({ foodId: food.id, amount: fmt(food.portions[0]?.amount ?? 100) });
+    ingredients.append({
+      foodId: food.id,
+      pending: null,
+      amount: fmt(food.portions[0]?.amount ?? 100),
+    });
+  };
+
+  /**
+   * A parsed recipe replaces the ingredient lines (matched foods by id, proposed ones as pending
+   * rows created on save) and fills name, cooked weight and servings where the form has none.
+   * Lines the model could neither match nor describe are dropped and counted in a toast.
+   */
+  const applyRecipe = (result: AiRecipeResponse) => {
+    if (form.getValues('name').trim() === '') {
+      form.setValue('name', result.name, { shouldDirty: true });
+    }
+    let skipped = 0;
+    const rows: DishFormValues['ingredients'] = [];
+    for (const line of result.ingredients) {
+      if (line.matchedFoodId !== null && foodById.has(line.matchedFoodId)) {
+        rows.push({ foodId: line.matchedFoodId, pending: null, amount: fmt(line.amount) });
+      } else if (line.suggestedFood) {
+        rows.push({ foodId: null, pending: line.suggestedFood, amount: fmt(line.amount) });
+      } else {
+        skipped += 1;
+      }
+    }
+    ingredients.replace(rows);
+    if (result.cookedWeight !== null) {
+      setCookedAuto(false);
+      form.setValue('cookedWeight', fmt(result.cookedWeight), { shouldDirty: true });
+    }
+    if (result.servings !== null) {
+      form.setValue('servings', String(result.servings), { shouldDirty: true });
+    }
+    if (skipped > 0) {
+      toast.message(
+        `${skipped} ${skipped === 1 ? 'line needs' : 'lines need'} a food you pick by hand`,
+        { description: 'Use "Add ingredient" for what the model could not place.' },
+      );
+    } else {
+      toast.success(
+        `Recipe applied: ${rows.length} ${rows.length === 1 ? 'ingredient' : 'ingredients'}`,
+      );
+    }
   };
 
   const submit = (event: React.FormEvent) => {
@@ -241,6 +315,7 @@ export function DishForm({
               const line = lines[index];
               const food = line?.food;
               const rowError = errors.ingredients?.[index]?.amount?.message;
+              const lineError = errors.ingredients?.[index]?.message;
               const kcal =
                 food && line?.amount !== null && line?.amount !== undefined
                   ? (food.per100.kcal * line.amount) / 100
@@ -253,7 +328,11 @@ export function DishForm({
                         {food?.name ?? 'Unknown food'}
                       </span>
                       {food?.archivedAt ? <Tag>Archived</Tag> : null}
+                      {line?.pending ? (
+                        <Tag className="bg-accent-soft text-accent shrink-0">New food</Tag>
+                      ) : null}
                     </div>
+                    {lineError ? <p className="text-danger mt-0.5 text-xs">{lineError}</p> : null}
                     <div className="text-fg-muted tabular mt-0.5 text-xs">
                       {food ? `${formatKcal(food.per100.kcal)} kcal/100 ${food.basis}` : '—'}
                       {kcal !== null ? (
@@ -304,10 +383,26 @@ export function DishForm({
           </p>
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
-            <Plus className="size-4" aria-hidden="true" />
-            Add ingredient
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+              <Plus className="size-4" aria-hidden="true" />
+              Add ingredient
+            </Button>
+            {aiEnabled ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRecipeMounted(true);
+                  setRecipeOpen(true);
+                }}
+              >
+                <Sparkles className="size-4" aria-hidden="true" />
+                Paste a recipe
+              </Button>
+            ) : null}
+          </div>
           <span className="text-fg-muted tabular text-sm">
             Raw total <span className="text-fg font-medium">{formatQuantity(rawWeight, 'g')}</span>
           </span>
@@ -451,6 +546,11 @@ export function DishForm({
         filter={isNotDish}
         onPick={addIngredient}
       />
+      {aiEnabled && recipeMounted ? (
+        <Suspense fallback={null}>
+          <AiRecipeSheet open={recipeOpen} onOpenChange={setRecipeOpen} onApply={applyRecipe} />
+        </Suspense>
+      ) : null}
     </form>
   );
 }

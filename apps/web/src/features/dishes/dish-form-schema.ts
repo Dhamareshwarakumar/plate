@@ -1,4 +1,5 @@
 import {
+  aiSuggestedFoodSchema,
   DISH_INGREDIENTS_MAX,
   DISH_SERVINGS_MAX,
   DISH_WEIGHT_MAX,
@@ -42,10 +43,18 @@ export const dishFormSchema = z.object({
   categoryId: z.string(),
   ingredients: z
     .array(
-      z.object({
-        foodId: z.number().int().positive(),
-        amount: positiveString('Amount', DISH_WEIGHT_MAX),
-      }),
+      z
+        .object({
+          /** A library food, or null while the line still waits for `pending` to be created. */
+          foodId: z.number().int().positive().nullable(),
+          /**
+           * A food the recipe import proposed (Phase 11): shown as "New food" in the editor and
+           * created with `source = 'ai'` when the dish is saved, never before.
+           */
+          pending: aiSuggestedFoodSchema.nullable(),
+          amount: positiveString('Amount', DISH_WEIGHT_MAX),
+        })
+        .refine((i) => i.foodId !== null || i.pending !== null, { message: 'Pick a food' }),
     )
     .min(1, 'Add at least one ingredient')
     .max(DISH_INGREDIENTS_MAX, `At most ${DISH_INGREDIENTS_MAX} ingredients`),
@@ -74,7 +83,12 @@ export const EMPTY_DISH_FORM: DishFormValues = {
 
 const fmt = (n: number): string => String(Math.round(n * 100) / 100);
 
-export function toDishInput(values: DishFormValues): DishInput {
+/** A validated form whose pending ingredients have been created: every line has a `foodId`. */
+export type ResolvedDishFormValues = Omit<DishFormValues, 'ingredients'> & {
+  ingredients: readonly { foodId: number; amount: string }[];
+};
+
+export function toDishInput(values: ResolvedDishFormValues): DishInput {
   const servings = parseDecimal(values.servings);
   return {
     name: values.name,
@@ -94,7 +108,11 @@ export function fromDish(dish: Dish): DishFormValues {
     name: dish.name,
     brand: dish.brand ?? '',
     categoryId: dish.categoryId === null ? '' : String(dish.categoryId),
-    ingredients: dish.ingredients.map((i) => ({ foodId: i.foodId, amount: fmt(i.amount) })),
+    ingredients: dish.ingredients.map((i) => ({
+      foodId: i.foodId,
+      pending: null,
+      amount: fmt(i.amount),
+    })),
     cookedWeight: fmt(dish.cookedWeight),
     servings: dish.servings === null ? '' : String(dish.servings),
   };

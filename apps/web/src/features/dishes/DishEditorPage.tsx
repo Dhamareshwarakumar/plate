@@ -1,4 +1,4 @@
-import type { Dish } from '@plate/shared';
+import type { Dish, DishInput } from '@plate/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, ArrowLeft, Trash2, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
@@ -9,7 +9,15 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/states';
-import { useCategories, useDeleteFood, useFoods, useSetFoodArchived } from '@/features/foods/api';
+import { resolvePendingFoods } from '@/features/ai/pending-foods';
+import {
+  useCategories,
+  useCreateFood,
+  useDeleteFood,
+  useFoods,
+  useSetFoodArchived,
+} from '@/features/foods/api';
+import { useAbout } from '@/features/settings/api';
 import { ApiClientError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { dishKeys } from '@/lib/query-keys';
@@ -30,6 +38,9 @@ export function DishEditorPage() {
   const categories = useCategories();
   const library = useFoods({ includeArchived: true });
   const dish = useDish(id);
+  // "Paste a recipe" is hidden until the server confirms an AI provider (Phase 11).
+  const about = useAbout();
+  const createFood = useCreateFood();
   const createDish = useCreateDish();
   const updateDish = useUpdateDish();
   const recalculate = useRecalculateDish();
@@ -78,7 +89,16 @@ export function DishEditorPage() {
   };
 
   const onSubmit = async (values: DishFormValues) => {
-    const input = toDishInput(values);
+    // Ingredients a recipe import proposed are created now (source 'ai'), one by one, before the
+    // dish; a failure there leaves the form as it is with the message naming the food.
+    let input: DishInput;
+    try {
+      const ingredients = await resolvePendingFoods(values.ingredients, createFood.mutateAsync);
+      input = toDishInput({ ...values, ingredients });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save the new foods. Try again.');
+      return;
+    }
     try {
       if (isCreate) {
         const created = await createDish.mutateAsync(input);
@@ -137,7 +157,7 @@ export function DishEditorPage() {
   };
 
   const title = isCreate ? 'New dish' : (dish.data?.name ?? 'Edit dish');
-  const submitting = createDish.isPending || updateDish.isPending;
+  const submitting = createFood.isPending || createDish.isPending || updateDish.isPending;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -197,6 +217,7 @@ export function DishEditorPage() {
           submitting={submitting}
           onRecalculate={dish.data ? () => void onRecalculate(dish.data) : undefined}
           recalculating={recalculate.isPending}
+          aiEnabled={about.data?.ai.enabled === true}
           secondaryActions={
             dish.data ? (
               <>

@@ -1,5 +1,5 @@
 import type { Food } from '@plate/shared';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FoodForm } from './FoodForm';
@@ -43,9 +43,19 @@ const amounts = () =>
     (n) => screen.getByLabelText<HTMLInputElement>(`Portion ${n} amount in g`).value,
   );
 
-function renderForm(onSubmit = vi.fn(async () => undefined)) {
+function renderForm(
+  onSubmit = vi.fn(async () => undefined),
+  props: { aiEnabled?: boolean; food?: Food | undefined } = {},
+) {
   render(
-    <FoodForm food={banana} categories={[]} onSubmit={onSubmit} submitting={false} mode="edit" />,
+    <FoodForm
+      food={'food' in props ? props.food : banana}
+      categories={[]}
+      onSubmit={onSubmit}
+      submitting={false}
+      mode="edit"
+      {...(props.aiEnabled !== undefined ? { aiEnabled: props.aiEnabled } : {})}
+    />,
   );
   return onSubmit;
 }
@@ -88,5 +98,46 @@ describe('FoodForm portions', () => {
     renderForm();
     const list = screen.getByRole('list', { name: 'Portions' });
     expect(list.querySelectorAll('[aria-hidden="true"] svg')).toHaveLength(3);
+  });
+});
+
+describe('FoodForm AI estimate', () => {
+  it('shows "Estimate with AI" only when enabled, and not before a name is typed', async () => {
+    renderForm(undefined, { aiEnabled: false });
+    expect(screen.queryByRole('button', { name: 'Estimate with AI' })).toBeNull();
+    cleanup();
+
+    renderForm(undefined, { aiEnabled: true, food: undefined });
+    const button = screen.getByRole('button', { name: 'Estimate with AI' });
+    expect(button).toBeDisabled();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText('Name', { exact: true }), 'Sambar');
+    expect(button).toBeEnabled();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('shows the estimated notice for a saved estimate and reports it on submit until a value changes', async () => {
+    const onSubmit = renderForm(undefined, {
+      aiEnabled: true,
+      food: { ...banana, source: 'ai', estimatedAt: '2026-11-02T10:00:00.000Z' },
+    });
+    const user = userEvent.setup();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Estimated by AI; verify against a label when you can.',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(expect.anything(), 'save', { estimated: true }),
+    );
+
+    const kcal = screen.getByLabelText('Calories', { exact: true });
+    await user.clear(kcal);
+    await user.type(kcal, '90');
+    expect(screen.queryByRole('status')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(expect.anything(), 'save', { estimated: false }),
+    );
   });
 });

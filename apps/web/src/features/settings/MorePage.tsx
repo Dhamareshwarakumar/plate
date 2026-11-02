@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { Segmented } from '@/components/ui/segmented';
+import { AiAssistantCard } from '@/features/ai/AiAssistantCard';
 import { useLogout } from '@/features/auth/use-session';
 import { activeGoalFor, useGoals } from '@/features/goals/api';
 import { GoalCard } from '@/features/goals/GoalCard';
@@ -45,15 +46,16 @@ export function MorePage() {
   // sheet waits for the list so the form mounts with the right defaults.
   const prefill = activeGoalFor(goals.data, todayKey()) ?? goals.data?.[0] ?? null;
 
-  // Section order follows DESIGN §7: goal, reminders, adherence (+ week start), library, appearance,
-  // profile, data, security, about. On desktop the goal and the reminders row span both columns,
-  // so the eight other cards pair up without an orphan row.
+  // Section order follows DESIGN §7: goal, reminders, AI assistant, adherence (+ week start),
+  // library, appearance, profile, data, security, about. On desktop the goal, the reminders row
+  // and the AI card span both columns, so the eight other cards pair up without an orphan row.
   return (
     <>
       <PageHeader title="More" description="Goal, preferences, data, security and app details." />
       <div className="grid gap-4 lg:grid-cols-2">
         <GoalCard onEdit={openEditor} className="lg:col-span-2" />
         <RemindersCard />
+        <AiAssistantCard className="lg:col-span-2" />
         <AdherenceCard />
         <WeekStartCard />
         <LibraryCard />

@@ -81,7 +81,9 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json' },
   });
 
-function stubApi(options: { offEnabled?: boolean; product?: () => Response } = {}) {
+function stubApi(
+  options: { offEnabled?: boolean; aiEnabled?: boolean; product?: () => Response } = {},
+) {
   const posted: unknown[] = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.startsWith('/api/foods') && init?.method === 'POST') {
@@ -99,7 +101,9 @@ function stubApi(options: { offEnabled?: boolean; product?: () => Response } = {
         dbPath: 'plate.db',
         counts: { foods: 1, entries: 0, days: 0 },
         offEnabled: options.offEnabled ?? true,
-        ai: { enabled: false, provider: 'none', model: null },
+        ai: options.aiEnabled
+          ? { enabled: true, provider: 'fake', model: 'fake-1' }
+          : { enabled: false, provider: 'none', model: null },
       });
     }
     if (url.startsWith('/api/off/product/')) return (options.product ?? (() => json(twixResult)))();
@@ -232,5 +236,30 @@ describe('LogSheet barcode scanning', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Open Food Facts is unavailable');
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Twix glacé')).toBeInTheDocument();
+  });
+});
+
+describe('LogSheet AI entry point', () => {
+  it('shows "Describe or photograph" only when the server has an AI provider', async () => {
+    const { fetchMock } = stubApi({ aiEnabled: false });
+    renderSheet();
+    await screen.findByText('Oat drink');
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/about'))).toBe(true),
+    );
+    expect(screen.getByRole('button', { name: 'Scan barcode' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Describe or photograph' })).toBeNull();
+  });
+
+  it('opens the AI sheet from the Sparkles button', async () => {
+    stubApi({ aiEnabled: true });
+    renderSheet();
+    const user = userEvent.setup();
+    const button = await screen.findByRole('button', { name: 'Describe or photograph' });
+    await user.click(button);
+    expect(
+      await screen.findByRole('dialog', { name: 'Describe or photograph' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Logging to Breakfast · Sun 19 Oct')).toBeInTheDocument();
   });
 });

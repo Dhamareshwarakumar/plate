@@ -8,7 +8,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/states';
-import { useSettings } from '@/features/settings/api';
+import { useAbout, useSettings } from '@/features/settings/api';
 import { cn } from '@/lib/cn';
 import { todayKey, weekStartsOnFor } from '@/lib/dates';
 import { useKeyboardShortcuts } from '@/lib/keyboard';
@@ -43,6 +43,10 @@ const MacrosChart = lazy(() => import('./MacrosChart').then((m) => ({ default: m
 const WeightVsIntakeChart = lazy(() =>
   import('./WeightVsIntakeChart').then((m) => ({ default: m.WeightVsIntakeChart })),
 );
+// The AI digest card (Phase 11) is its own chunk too; it only mounts when a provider is configured.
+const WeeklyDigestCard = lazy(() =>
+  import('@/features/ai/WeeklyDigestCard').then((m) => ({ default: m.WeeklyDigestCard })),
+);
 
 const CUSTOM_PARAM = 'pick';
 
@@ -55,6 +59,7 @@ export function InsightsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const settings = useSettings();
+  const about = useAbout();
   const weekStart = settings.data?.weekStart ?? DEFAULT_SETTINGS.weekStart;
   const weekStartsOn = weekStartsOnFor(weekStart);
   const tolerancePct = settings.data?.tolerancePct ?? DEFAULT_SETTINGS.tolerancePct;
@@ -138,6 +143,17 @@ export function InsightsPage() {
 
             {/* `min-w-0` on every card: a wide scroller (the year strip) must not widen the grid. */}
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              {range.kind === 'week' && about.data?.ai.enabled === true ? (
+                <Card className="min-w-0 lg:col-span-2">
+                  <CardTitle>Weekly digest</CardTitle>
+                  <div className="mt-4">
+                    <Suspense fallback={<Skeleton className="h-24 w-full" />}>
+                      <WeeklyDigestCard weekStart={range.from} />
+                    </Suspense>
+                  </div>
+                </Card>
+              ) : null}
+
               <Card className="min-w-0 lg:col-span-2">
                 <CardTitle>{weekly ? 'Calories per week' : 'Calories per day'}</CardTitle>
                 <div className="mt-4">

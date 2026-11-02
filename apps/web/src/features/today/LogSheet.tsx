@@ -9,10 +9,11 @@ import {
   type MealTemplate,
   type OffResult,
 } from '@plate/shared';
-import { Check, ScanBarcode, Search, X } from 'lucide-react';
+import { Check, ScanBarcode, Search, Sparkles, X } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { lazyNamed } from '@/app/lazy';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -40,6 +41,9 @@ import { QuantityStep } from './QuantityStep';
 import { scannedResultToFoodInput } from './scan-helpers';
 import { ScannedStep } from './ScannedStep';
 import { TemplateStep } from './TemplateStep';
+
+// The AI sheet is its own chunk: it only loads the first time someone taps the Sparkles button.
+const AiLogSheet = lazyNamed(() => import('@/features/ai/AiLogSheet'), 'AiLogSheet');
 
 export interface LogSheetProps {
   open: boolean;
@@ -102,6 +106,8 @@ function LogSheetInner({
   // Whether a scanned code may be looked up online; unknown (still loading) counts as yes.
   const about = useAbout();
   const offEnabled = about.data?.offEnabled !== false;
+  // "Describe or photograph" exists only once the server says a provider is configured (Phase 11).
+  const aiEnabled = about.data?.ai.enabled === true;
   const addEntry = useAddEntry();
   const logTemplate = useLogMealTemplate();
   const createFood = useCreateFood();
@@ -110,6 +116,9 @@ function LogSheetInner({
   const [slotId, setSlotId] = useState<number | undefined>(initialSlotId);
   const [done, setDone] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  // Mounted on first use and kept, so the nested sheet animates closed like the scanner.
+  const [aiMounted, setAiMounted] = useState(false);
   const intent = useRef<'log' | 'log-and-add'>('log');
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -519,6 +528,21 @@ function LogSheetInner({
               >
                 <ScanBarcode className="size-5" aria-hidden="true" />
               </Button>
+              {aiEnabled ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Describe or photograph"
+                  title="Describe or photograph"
+                  onClick={() => {
+                    setAiMounted(true);
+                    setAiOpen(true);
+                  }}
+                >
+                  <Sparkles className="size-5" aria-hidden="true" />
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : undefined
@@ -576,6 +600,23 @@ function LogSheetInner({
       )}
 
       <BarcodeScannerSheet open={scanOpen} onOpenChange={setScanOpen} onDetected={onScanned} />
+      {aiMounted ? (
+        <Suspense fallback={null}>
+          <AiLogSheet
+            open={aiOpen}
+            onOpenChange={(next) => {
+              if (!next) setAiOpen(false);
+            }}
+            day={day}
+            slotId={effectiveSlotId}
+            slotName={activeSlots.find((s) => s.id === effectiveSlotId)?.name ?? 'meal'}
+            onLogged={() => {
+              setAiOpen(false);
+              finish();
+            }}
+          />
+        </Suspense>
+      ) : null}
 
       {done ? (
         <div
