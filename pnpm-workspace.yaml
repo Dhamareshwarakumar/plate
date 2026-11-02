@@ -2,10 +2,14 @@ packages:
   - apps/*
   - packages/*
 
-# Native modules and bundlers that need their install scripts to run.
+# Install scripts. argon2's `node-gyp-build` only picks the bundled prebuild (glibc or musl) and
+# compiles nothing when one exists. better-sqlite3 has no install script of its own: npm/pnpm would
+# run an implicit `node-gyp rebuild` because it ships a binding.gyp, which needs python3/make/g++ and
+# recompiles SQLite although lib/binding.js loads the bundled prebuilds/<platform>-<arch>.node first.
+# Denying it keeps installs toolchain-free on macOS, Debian and Alpine (D134).
 allowBuilds:
   argon2: true
-  better-sqlite3: true
+  better-sqlite3: false
   esbuild: true
 
 minimumReleaseAgeExclude:

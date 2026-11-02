@@ -1,18 +1,18 @@
 # syntax=docker/dockerfile:1.7
 # Multi-stage build for the Plate image (linux/arm64 for the Raspberry Pi 5, linux/amd64 for laptops).
 # Build from the repository root:  docker build -f docker/Dockerfile -t plate .
+#
+# Both stages are Alpine (musl): better-sqlite3 ships prebuilds/linuxmusl-{arm64,x64}.node and argon2
+# ships *.musl.node, so no compiler toolchain is needed and the runtime image is ~150 MB instead of
+# the ~565 MB of the Debian-based variant. If a future Node release lacks a musl prebuild, switch
+# both FROM lines back to node:${NODE_VERSION}-bookworm-slim and add `apt-get install python3 make g++`
+# to the builder.
 
 ARG NODE_VERSION=24
 
 # ---------- builder: install everything, build shared -> api -> web ----------
-FROM node:${NODE_VERSION}-bookworm-slim AS builder
+FROM node:${NODE_VERSION}-alpine AS builder
 WORKDIR /src
-
-# Native modules (better-sqlite3, argon2) ship prebuilt binaries for linux arm64/amd64 glibc;
-# the toolchain is only a fallback in case a prebuild is missing for a new Node release.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
- && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable && corepack prepare pnpm@11.4.0 --activate
 
@@ -31,12 +31,19 @@ COPY apps/web apps/web
 RUN pnpm --filter @plate/api build \
  && pnpm --filter @plate/web build
 
-# Production node_modules for the API only (shared is bundled into dist by tsup).
+# Production node_modules for the API only (shared is bundled into dist by tsup). Then drop what the
+# runtime never loads: better-sqlite3's bundled SQLite source tree and the prebuilds for other
+# platforms (busybox sh has no brace expansion, hence the explicit list).
 RUN pnpm --filter @plate/api --prod deploy --legacy /out/api \
- && rm -rf /out/api/src /out/api/test
+ && rm -rf /out/api/src /out/api/test \
+ && find /out/api/node_modules -path '*/better-sqlite3/deps' -type d -prune -exec rm -rf {} + \
+ && find /out/api/node_modules -path '*/better-sqlite3/prebuilds/*' -type f \
+      ! -name 'linuxmusl-*' -delete \
+ && find /out/api/node_modules -path '*/argon2/prebuilds/*' -type f \
+      ! -name '*.musl.node' -delete
 
 # ---------- runtime: small, non-root, read-only friendly ----------
-FROM node:${NODE_VERSION}-bookworm-slim AS runtime
+FROM node:${NODE_VERSION}-alpine AS runtime
 ENV NODE_ENV=production \
     # The container network is the boundary; exposure is decided by the compose `ports:` mapping.
     HOST=0.0.0.0 \
@@ -47,14 +54,15 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-COPY --from=builder /out/api/node_modules ./node_modules
-COPY --from=builder /out/api/package.json ./package.json
-COPY --from=builder /src/apps/api/dist ./dist
-COPY --from=builder /src/apps/api/drizzle ./drizzle
-COPY --from=builder /src/apps/web/dist ./web
-COPY docker/healthcheck.mjs ./healthcheck.mjs
+# --chown at copy time: a separate `chown -R` would duplicate every file into a new 90 MB layer.
+COPY --from=builder --chown=node:node /out/api/node_modules ./node_modules
+COPY --from=builder --chown=node:node /out/api/package.json ./package.json
+COPY --from=builder --chown=node:node /src/apps/api/dist ./dist
+COPY --from=builder --chown=node:node /src/apps/api/drizzle ./drizzle
+COPY --from=builder --chown=node:node /src/apps/web/dist ./web
+COPY --chown=node:node docker/healthcheck.mjs ./healthcheck.mjs
 
-RUN mkdir -p /data && chown -R node:node /data /app
+RUN mkdir -p /data && chown node:node /data
 USER node
 VOLUME ["/data"]
 EXPOSE 8080

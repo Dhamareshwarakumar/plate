@@ -1,6 +1,10 @@
 # Plate on a Raspberry Pi (or any Docker host).
 #   cp .env.example .env     # then edit
 #   docker compose up -d --build
+# The project name is pinned: Compose otherwise names the project after this directory ("docker"),
+# which collides with any other project kept in a folder of the same name (shared network, and
+# `docker compose down` would take their containers down too).
+name: plate
 services:
   plate:
     build:
