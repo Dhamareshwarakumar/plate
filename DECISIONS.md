@@ -220,3 +220,4 @@ Captured by `tools/shots/phase9-states.mjs` against a fresh production database 
 ## Open items for you
 
 None. Plan approved on 19 Oct 2025; build started with Phase 0.
+| D141 | `docker-compose.yml` and `.env.example` moved to the repository root; container starts as root, fixes `./data` ownership, then drops to `node` via `su-exec` | First real deployment stumbled on compose living in `docker/`, two different `.env.example` files, and the root-owned bind mount Docker creates. The quick start is now three commands from the clone directory with no manual chown. | Agreed (user report) |

@@ -1,14 +1,12 @@
-# Plate on a Raspberry Pi (or any Docker host).
-#   cp .env.example .env     # then edit
+# Plate on a Raspberry Pi (or any Docker host). Run from the repository root:
+#   cp .env.example .env         # set APP_INITIAL_PASSWORD; PLATE_BIND=0.0.0.0 to reach it from other devices
 #   docker compose up -d --build
-# The project name is pinned: Compose otherwise names the project after this directory ("docker"),
-# which collides with any other project kept in a folder of the same name (shared network, and
-# `docker compose down` would take their containers down too).
+# The project name is pinned so it does not depend on the folder you cloned into.
 name: plate
 services:
   plate:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile
     image: plate:latest
     container_name: plate
@@ -22,13 +20,14 @@ services:
     environment:
       # Used only on the very first start (or by `reset-password`); afterwards the password lives
       # in the database and is changed from Settings → Security.
-      APP_INITIAL_PASSWORD: ${APP_INITIAL_PASSWORD:?set APP_INITIAL_PASSWORD in .env}
+      APP_INITIAL_PASSWORD: ${APP_INITIAL_PASSWORD:?missing. Run "cp .env.example .env" in the repository root and set APP_INITIAL_PASSWORD}
       # Set to "true" when a reverse proxy terminates TLS in front of Plate (Caddy, nginx, Traefik).
       TRUST_PROXY: ${TRUST_PROXY:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # "Search online" in the food editor (Open Food Facts). false = no outbound calls at all.
       OFF_LOOKUP_ENABLED: ${OFF_LOOKUP_ENABLED:-true}
     volumes:
+      # Created on first start if missing; the container fixes its ownership itself (docker/entrypoint.sh).
       - ./data:/data
     read_only: true
     tmpfs:
@@ -57,7 +56,7 @@ services:
   #   environment:
   #     PLATE_DOMAIN: ${PLATE_DOMAIN:?set PLATE_DOMAIN in .env}
   #   volumes:
-  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
   #     - caddy-data:/data
   #     - caddy-config:/config
   #   depends_on:

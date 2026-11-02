@@ -52,6 +52,9 @@ ENV NODE_ENV=production \
     WEB_DIST_DIR=/app/web \
     MIGRATIONS_DIR=/app/drizzle
 
+# su-exec: drop from root to the app user after the entrypoint has fixed /data ownership.
+RUN apk add --no-cache su-exec
+
 WORKDIR /app
 
 # --chown at copy time: a separate `chown -R` would duplicate every file into a new 90 MB layer.
@@ -61,12 +64,14 @@ COPY --from=builder --chown=node:node /src/apps/api/dist ./dist
 COPY --from=builder --chown=node:node /src/apps/api/drizzle ./drizzle
 COPY --from=builder --chown=node:node /src/apps/web/dist ./web
 COPY --chown=node:node docker/healthcheck.mjs ./healthcheck.mjs
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/plate-entrypoint
 
 RUN mkdir -p /data && chown node:node /data
-USER node
 VOLUME ["/data"]
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD ["node", "/app/healthcheck.mjs"]
 
+# Root here; the entrypoint switches to `node` before the server starts (see docker/entrypoint.sh).
+ENTRYPOINT ["plate-entrypoint"]
 CMD ["node", "/app/dist/server.js"]

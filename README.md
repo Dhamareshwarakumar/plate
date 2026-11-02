@@ -4,53 +4,34 @@ A personal diet ledger you run yourself: log what you eat, track calories and ma
 
 Plan and design: [REQUIREMENTS.md](REQUIREMENTS.md) · [DESIGN.md](DESIGN.md) · [TECH.md](TECH.md) · [DECISIONS.md](DECISIONS.md)
 
-## Run it on a Raspberry Pi 5
+## Quick start (Raspberry Pi 5 or any Docker host)
 
-Tested layout: Raspberry Pi OS (64-bit, Bookworm), Docker from Docker's own repository, the app in
-`~/plate`. The image is Alpine-based and about 315 MB; it builds on the Pi itself in a few minutes
-(no compiler toolchain, the native modules ship prebuilt binaries).
+Everything happens in the repository root. You need Docker with Compose v2
+(`curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker "$USER"`, then log out and in).
 
-1. **Install Docker** (once):
+```sh
+git clone https://github.com/Dhamareshwarakumar/plate.git
+cd plate
+cp .env.example .env            # set APP_INITIAL_PASSWORD; set PLATE_BIND=0.0.0.0 to use it from your phone
+docker compose up -d --build    # builds for the Pi's own architecture, takes a few minutes the first time
+docker compose ps               # wait until plate shows "healthy"
+```
 
-   ```sh
-   curl -fsSL https://get.docker.com | sh
-   sudo usermod -aG docker "$USER"      # then log out and back in
-   docker compose version                # Compose v2 comes with the install
-   ```
+Open `http://<pi-address>:8080` (with `PLATE_BIND=0.0.0.0`) or `http://127.0.0.1:8080` on the Pi
+itself, sign in with the initial password, then **change it in More → Security**.
 
-2. **Clone and configure:**
+What you get: one container, your data in `./data/plate.db` next to this README, the SQLite
+`-wal`/`-shm` companions beside it while the app runs. The `data` folder is created on first start
+and the container makes it writable for its own non-root user; nothing to `chown` by hand.
 
-   ```sh
-   git clone <this repo> ~/plate && cd ~/plate/docker
-   cp .env.example .env
-   nano .env                             # APP_INITIAL_PASSWORD at least; the rest can stay
-   ```
-
-3. **Create the data directory** so the container (user `node`, uid 1000) can write to it. Docker
-   would otherwise create it as root on first start and SQLite could not open the file:
-
-   ```sh
-   mkdir -p data && sudo chown 1000:1000 data
-   ```
-
-4. **Build and start:**
-
-   ```sh
-   docker compose up -d --build          # builds for the Pi's architecture (arm64)
-   docker compose ps                     # wait for "healthy"
-   curl -i http://127.0.0.1:8080/api/health
-   ```
-
-5. **Sign in** at `http://127.0.0.1:8080` (or through the proxy below) with the initial password,
-   then **change it in More → Security**. Your data lives in `docker/data/plate.db` (plus the
-   `-wal`/`-shm` files SQLite keeps next to it while running).
+The only file you edit is `.env` (`apps/api/.env.example` is for local development, not for Docker).
 
 ### Reaching it from your phone
 
 By default the app is published on `127.0.0.1` only. Pick one:
 
-1. **Reverse proxy with HTTPS (recommended).** Uncomment the `caddy` service in `docker-compose.yml`, set `PLATE_DOMAIN` in `.env` to a DNS name that points at your static IP, set `TRUST_PROXY=true`, delete the `ports:` block on `plate`, forward 80/443 on your router to the Pi, then `docker compose up -d`. Caddy obtains and renews the certificate. HTTPS is also what makes the home-screen install (PWA) work, and it sets the `Secure` flag on the session cookie.
-2. **Plain HTTP on your network.** Set `PLATE_BIND=0.0.0.0` in `.env`. Every device that can reach the Pi can reach the login page; the password is sent over plain HTTP, and the browser will not offer "Add to Home Screen" as an app.
+1. **Reverse proxy with HTTPS (recommended).** Uncomment the `caddy` service at the bottom of `docker-compose.yml`, set `PLATE_DOMAIN` in `.env` to a DNS name that points at your static IP, set `TRUST_PROXY=true`, delete the `ports:` block on `plate`, forward 80/443 on your router to the Pi, then `docker compose up -d`. Caddy obtains and renews the certificate. HTTPS is also what makes the home-screen install (PWA) work, and it sets the `Secure` flag on the session cookie.
+2. **Plain HTTP on your network.** Set `PLATE_BIND=0.0.0.0` in `.env` and `docker compose up -d`. Every device that can reach the Pi can reach the login page; the password is sent over plain HTTP, and the browser will not offer "Add to Home Screen" as an app. Fine on a trusted home network.
 
 ### Backups
 
@@ -64,7 +45,7 @@ crontab -e
 
 ```cron
 # nightly at 03:00, keep 30 days
-0 3 * * * sqlite3 /home/pi/plate/docker/data/plate.db ".backup '/home/pi/plate-backups/plate-$(date +\%F).db'"
+0 3 * * * sqlite3 /home/pi/plate/data/plate.db ".backup '/home/pi/plate-backups/plate-$(date +\%F).db'"
 30 3 * * * find /home/pi/plate-backups -name 'plate-*.db' -mtime +30 -delete
 ```
 
@@ -74,16 +55,16 @@ exports (More → Data: JSON backup, SQLite snapshot, CSVs) are a second, hand-d
 **Restore:** stop the app, replace the file, start again:
 
 ```sh
-cd ~/plate/docker && docker compose down
+cd ~/plate && docker compose down
 rm -f data/plate.db-wal data/plate.db-shm
-cp ~/plate-backups/plate-2026-01-31.db data/plate.db && sudo chown 1000:1000 data/plate.db
-docker compose up -d
+cp ~/plate-backups/plate-2026-01-31.db data/plate.db
+docker compose up -d            # ownership of the restored file is fixed on start
 ```
 
 ### Upgrade
 
 ```sh
-cd ~/plate/docker
+cd ~/plate
 sqlite3 data/plate.db ".backup '/home/pi/plate-backups/pre-upgrade.db'"   # just in case
 git pull
 docker compose up -d --build

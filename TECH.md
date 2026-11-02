@@ -203,6 +203,8 @@ Multi-stage Dockerfile, both stages `node:24-alpine`: the builder runs `pnpm ins
 
 ### 8.2 Compose
 
+`docker-compose.yml` and `.env.example` live in the repository root so the quick start is `cp .env.example .env && docker compose up -d --build` right after cloning. The image starts as root only to make the bind-mounted `./data` writable for the `node` user, then drops privileges via `su-exec` (`docker/entrypoint.sh`).
+
 ```yaml
 name: plate # pinned: the folder is called docker/, which would otherwise be the project name
 services:
@@ -231,7 +233,7 @@ services:
 ### 8.3 Operations
 
 - Migrations run automatically on startup (drizzle-kit generated SQL, applied in a transaction, logged).
-- Backups: a host-side cron runs `sqlite3 docker/data/plate.db ".backup '…/plate-$(date +%F).db'"` against the bind-mounted file (the image has no sqlite3 CLI; WAL mode makes the concurrent read safe) and prunes copies older than 30 days; the in-app JSON export, SQLite snapshot and CSVs are the hand-driven route. Restore = stop, replace `data/plate.db` (remove `-wal`/`-shm`), start.
+- Backups: a host-side cron runs `sqlite3 data/plate.db ".backup '…/plate-$(date +%F).db'"` against the bind-mounted file (the image has no sqlite3 CLI; WAL mode makes the concurrent read safe) and prunes copies older than 30 days; the in-app JSON export, SQLite snapshot and CSVs are the hand-driven route. Restore = stop, replace `data/plate.db` (remove `-wal`/`-shm`), start.
 - Upgrade: back up, `git pull`, `docker compose up -d --build`; migrations are forward-only and run on startup. Open devices see the "update available" toast and reload on **Update**.
 - Resource footprint target on the Pi 5: < 150 MB RSS, idle CPU ≈ 0.
 
