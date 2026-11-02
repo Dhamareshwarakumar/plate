@@ -301,6 +301,7 @@ await page.route('**/api/about', (route) =>
     dbPath: 'plate.db',
     counts: { foods: 1, entries: 0, days: 0 },
     offEnabled: false,
+    ai: { enabled: false, provider: 'none', model: null },
   }),
 );
 await openLogSheet(page);
