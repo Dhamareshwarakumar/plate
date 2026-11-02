@@ -147,3 +147,21 @@ test send runs once too; web-push rejects the fake key, so it logs the `failed: 
 script resets the reminder settings and deletes its devices at the end, and waits 60 s before the
 desktop shots to stay under the API's 300 req/min limit. Only `Failed to load resource` lines from the
 loading/error mocks are expected in the console output.
+
+```sh
+SKIP_BUILD=1 node tools/shots/phase11-ai.mjs   # AI assistance: log sheet Sparkles button, "Describe or photograph" (compose, photo attached, analysing, review with Estimated / Library / Needs a food rows, pick a food, after picking + edited quantity, Today after logging, error, empty), food editor "Estimate with AI" (button, idle, result, prefilled editor with the notice, "Estimated" tag in the list), dish editor "Paste a recipe" (result, applied form with "New food" tags, saved dish), Insights week digest (Generate, generating, generated), More card (enabled, disabled), desktop review / digest / More card / editor with the notice; PNGs 01–27
+```
+
+`phase11-ai.mjs` never touches the dev servers or `apps/api/.env`: like `phase9-states.mjs` it starts its
+own production API on a free port with a fresh temp database and **`AI_PROVIDER=fake`** (canned answers,
+no key, no network; `AI_API_KEY`/`AI_MODEL`/`AI_BASE_URL` are passed as empty strings so nothing from the
+shell leaks in). It seeds Dal (which must get id 1, the fake's canned library match), Banana, Rice and Red
+lentils, a goal and this week's entries, then drives every state for real: the meal photo is a 640×480
+JPEG drawn on a canvas and uploaded through the file input (the resize + base64 path runs in the browser),
+the "analysing" and "generating" shots hold the request with `page.route` until the screenshot is taken,
+and the error / empty states come from the fake's trigger words (`fail`, `nothing`). It logs the review
+rows, the totals line, the saved sambar's `source`/`estimatedAt`, that Ghee and Onion were created with
+`source: 'ai'` on dish save, the usage counter, and `disabled → sparkles 0, estimate 0, paste 0, digest 0
+(all hidden)` from a mocked `/api/about` with `ai.enabled: false`. The one `Failed to load resource: ... 502`
+console line is the error-state shot and is expected. Without `SKIP_BUILD=1` it runs `pnpm -r build`
+first (the API is bundled by tsup, so a stale `apps/api/dist` has no AI routes).

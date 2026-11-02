@@ -50,6 +50,8 @@ export default defineConfig({
       WEB_DIST_DIR: webDist,
       LOG_LEVEL: 'warn',
       OFF_LOOKUP_ENABLED: 'false',
+      // Canned AI answers, no key and no network (ai.spec.ts); the real drivers are unit-tested.
+      AI_PROVIDER: 'fake',
     },
   },
   projects: [
