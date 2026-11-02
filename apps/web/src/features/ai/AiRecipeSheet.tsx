@@ -57,7 +57,7 @@ function AiRecipeSheetInner({ open, onOpenChange, onApply }: AiRecipeSheetProps)
   };
 
   const result = parse.data;
-  const foodName = (id: number) => library.data?.find((f) => f.id === id)?.name;
+  const libraryFood = (id: number) => library.data?.find((f) => f.id === id);
   const unresolved = result
     ? result.ingredients.filter((i) => i.matchedFoodId === null && i.suggestedFood === null).length
     : 0;
@@ -146,7 +146,7 @@ function AiRecipeSheetInner({ open, onOpenChange, onApply }: AiRecipeSheetProps)
             <ul className="divide-border -mx-1 divide-y" aria-label="Ingredients">
               {result.ingredients.map((line, index) => {
                 const matched =
-                  line.matchedFoodId === null ? undefined : foodName(line.matchedFoodId);
+                  line.matchedFoodId === null ? undefined : libraryFood(line.matchedFoodId);
                 const kcalPer100 = line.suggestedFood?.per100.kcal;
                 return (
                   <li key={index} className="flex items-start gap-3 px-1 py-2.5">
@@ -156,7 +156,7 @@ function AiRecipeSheetInner({ open, onOpenChange, onApply }: AiRecipeSheetProps)
                         {line.matchedFoodId !== null ? (
                           <>
                             <span className="truncate">
-                              {matched ?? `Food #${line.matchedFoodId}`}
+                              {matched?.name ?? `Food #${line.matchedFoodId}`}
                             </span>
                             <Tag className="shrink-0">Library</Tag>
                           </>
@@ -176,7 +176,10 @@ function AiRecipeSheetInner({ open, onOpenChange, onApply }: AiRecipeSheetProps)
                       </div>
                     </div>
                     <span className="text-fg tabular shrink-0 text-sm font-medium">
-                      {formatQuantity(line.amount, line.suggestedFood?.basis ?? 'g')}
+                      {formatQuantity(
+                        line.amount,
+                        matched?.basis ?? line.suggestedFood?.basis ?? 'g',
+                      )}
                     </span>
                   </li>
                 );

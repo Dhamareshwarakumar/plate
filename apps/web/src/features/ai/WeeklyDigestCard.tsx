@@ -26,6 +26,12 @@ export function WeeklyDigestCard({ weekStart }: WeeklyDigestCardProps) {
   const generate = useGenerateWeeklyDigest();
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const elapsed = useElapsedSeconds(generate.isPending ? startedAt : null);
+  // The card stays mounted while the user steps through weeks, so the mutation outlives a week
+  // change: its pending/error state (and the retry's refresh flag) belongs only to the week it was
+  // fired for. Other weeks show their cached digest or the Generate button as usual.
+  const ownWeek = generate.variables?.weekStart === weekStart;
+  const generating = generate.isPending && ownWeek;
+  const failed = generate.isError && ownWeek;
 
   const run = (refresh: boolean) => {
     setStartedAt(Date.now());
@@ -53,7 +59,7 @@ export function WeeklyDigestCard({ weekStart }: WeeklyDigestCardProps) {
       />
     );
   }
-  if (generate.isPending) {
+  if (generating) {
     return (
       <div className="flex flex-col gap-3" aria-busy="true">
         <p role="status" className="text-fg-muted text-sm">
@@ -67,7 +73,7 @@ export function WeeklyDigestCard({ weekStart }: WeeklyDigestCardProps) {
       </div>
     );
   }
-  if (generate.isError) {
+  if (failed) {
     return (
       <ErrorState
         title="Could not write the digest"
