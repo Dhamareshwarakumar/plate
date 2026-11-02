@@ -68,3 +68,15 @@ that `GET /api/about` reports the same counts afterwards (a no-op round trip; id
 survive). The About error state is produced by aborting `/api/about` with `page.route`, so the two or
 three `Failed to load resource: net::ERR_FAILED` console lines are expected; any other `CONSOLE` or
 `PAGEERROR` line is a defect.
+
+```sh
+node tools/shots/phase8-lookup.mjs          # Food editor "Search online": button, sheet idle, one real OFF search, loading skeleton, mocked results, empty, error + retry, barcode lookup, prefilled editor (full page) + saved provenance, hidden when disabled, desktop results + prefilled drawer
+```
+
+`phase8-lookup.mjs` runs **one real search** ("oat milk") through the API to Open Food Facts and logs
+`real search: <status> <n> items` (or `real search skipped (network)`); every other sheet state comes
+from `page.route()` mocks of `/api/off/**` answering in the API's mapped `{ items }` shape (nothing is
+mocked inside the app), and the disabled state from a mocked `/api/about` with `offEnabled: false`. It
+saves the prefilled "Twix glacé" through the editor, checks `source`/`offCode` on the server, and
+deletes that food again. The one `Failed to load resource: ... 502` console line comes from the mocked
+upstream error and is expected.
