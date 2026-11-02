@@ -1,4 +1,4 @@
-import { WATER_QUICK_ML, type DiaryDay } from '@plate/shared';
+import { WATER_QUICK_ML, type DayWater } from '@plate/shared';
 import { Droplets, Plus, Undo2 } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
@@ -11,7 +11,16 @@ import { useAddWater, useRemoveWater } from './api';
 import { WaterAmountSheet } from './WaterAmountSheet';
 
 export interface WaterCardProps {
-  day: DiaryDay;
+  /** The day being viewed (from the URL). Every add and undo targets this day, never `water`'s. */
+  day: string;
+  water: DayWater;
+  goalMl: number | null;
+  /**
+   * True while `water` is still the previous day's placeholder (day navigation keeps it on screen,
+   * dimmed). Writes are blocked until the viewed day has loaded, so "Undo last" cannot delete the
+   * other day's entry and the total the user sees is the one they are adding to.
+   */
+  disabled?: boolean | undefined;
   className?: string | undefined;
 }
 
@@ -22,19 +31,18 @@ const CARD = 'bg-surface border-border shadow-card rounded-card border p-4 sm:p-
  * +500, a custom amount, and "Undo last", which removes the newest addition. Every change is
  * optimistic, so the number and the summary chip move before the server answers.
  */
-export function WaterCard({ day, className }: WaterCardProps) {
+export function WaterCard({ day, water, goalMl, disabled = false, className }: WaterCardProps) {
   const addWater = useAddWater();
   const removeWater = useRemoveWater();
   const [customOpen, setCustomOpen] = useState(false);
   // The card renders twice (phone and desktop slots), so the heading id must be unique.
   const titleId = useId();
 
-  const { ml, entries } = day.water;
-  const goalMl = day.goal?.waterMl ?? null;
+  const { ml, entries } = water;
   const last = entries[entries.length - 1];
   // A temp entry (negative id) is still being created; let it settle before undoing.
-  const canUndo = last !== undefined && last.id > 0 && !removeWater.isPending;
-  const add = (amount: number) => addWater.mutate({ day: day.day, ml: amount });
+  const canUndo = !disabled && last !== undefined && last.id > 0 && !removeWater.isPending;
+  const add = (amount: number) => addWater.mutate({ day, ml: amount });
 
   return (
     <section aria-labelledby={titleId} className={cn(CARD, className)}>
@@ -81,6 +89,7 @@ export function WaterCard({ day, className }: WaterCardProps) {
           <Button
             key={amount}
             variant="secondary"
+            disabled={disabled}
             onClick={() => add(amount)}
             aria-label={`Add ${amount} ml of water`}
             className="tabular"
@@ -91,6 +100,7 @@ export function WaterCard({ day, className }: WaterCardProps) {
         ))}
         <Button
           variant="secondary"
+          disabled={disabled}
           onClick={() => setCustomOpen(true)}
           aria-label="Add a custom amount of water"
         >

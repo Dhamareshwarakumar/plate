@@ -185,7 +185,10 @@ function TodayView({ day }: { day: string }) {
             <WaterCardSkeleton className="hidden lg:block" />
           ) : data ? (
             <WaterCard
-              day={data}
+              day={day}
+              water={data.water}
+              goalMl={data.goal?.waterMl ?? null}
+              disabled={dayQuery.isPlaceholderData}
               className={cn(
                 'hidden lg:block',
                 dayQuery.isPlaceholderData && 'opacity-60 transition-opacity',
@@ -263,7 +266,15 @@ function TodayView({ day }: { day: string }) {
               />
             ))
           ) : null}
-          {data && !dayQuery.isError ? <WaterCard day={data} className="lg:hidden" /> : null}
+          {data && !dayQuery.isError ? (
+            <WaterCard
+              day={day}
+              water={data.water}
+              goalMl={data.goal?.waterMl ?? null}
+              disabled={dayQuery.isPlaceholderData}
+              className="lg:hidden"
+            />
+          ) : null}
           {!empty && data ? (
             <div className="flex flex-wrap justify-center gap-2 pt-1">
               <Button
