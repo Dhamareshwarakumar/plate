@@ -11,5 +11,6 @@ render public/favicon.svg 192 public/pwa-192.png
 render public/favicon.svg 512 public/pwa-512.png
 render public/favicon.svg 180 public/apple-touch-icon.png
 render public/maskable.svg 512 public/pwa-maskable-512.png
+render public/badge.svg 96 public/badge-96.png
 rm -rf "$tmp"
 echo "icons written to public/"

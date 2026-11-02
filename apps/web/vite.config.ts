@@ -12,6 +12,12 @@ export default defineConfig({
       // 'prompt': a new build is installed only after the user accepts the "update available"
       // toast (src/pwa/register.ts), never under their feet mid-edit.
       registerType: 'prompt',
+      // Our own worker (src/sw.ts): the same precache + navigation fallback the generated one
+      // had, plus the Web Push handlers for reminders (D176). The plugin injects the precache
+      // manifest and builds the worker with its own Vite build (no app plugins, no aliases).
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         id: '/',
@@ -30,14 +36,11 @@ export default defineConfig({
           { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        // The shell is precached; every /api call goes to the network (no stale data, no offline writes).
+      injectManifest: {
+        // The shell is precached; every /api call goes to the network (see src/sw.ts).
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallbackDenylist: [/^\/api\//],
-        cleanupOutdatedCaches: true,
-        // First install takes control of the open page at once (offline-capable from the first
-        // visit); later builds still wait for the Update toast because skipWaiting stays off.
-        clientsClaim: true,
+        // The worker is served as one classic script; the ES module flag is not needed.
+        rollupFormat: 'iife',
       },
       devOptions: { enabled: false },
     }),

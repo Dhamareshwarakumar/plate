@@ -29,6 +29,10 @@ const CategoriesPage = lazyNamed(
   'CategoriesPage',
 );
 const MealSlotsPage = lazyNamed(() => import('@/features/settings/MealSlotsPage'), 'MealSlotsPage');
+const RemindersPage = lazyNamed(
+  () => import('@/features/reminders/RemindersPage'),
+  'RemindersPage',
+);
 
 export const router = createBrowserRouter([
   {
@@ -71,6 +75,7 @@ export const router = createBrowserRouter([
                   { path: 'more', element: <MorePage /> },
                   { path: 'more/categories', element: <CategoriesPage /> },
                   { path: 'more/meal-slots', element: <MealSlotsPage /> },
+                  { path: 'more/reminders', element: <RemindersPage /> },
                 ],
               },
             ],

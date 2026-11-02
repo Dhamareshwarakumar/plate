@@ -1,4 +1,4 @@
-import { ChevronRight, Clock, FolderCog, LogOut, Moon, Sun, SunMoon } from 'lucide-react';
+import { Bell, ChevronRight, Clock, FolderCog, LogOut, Moon, Sun, SunMoon } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
@@ -9,6 +9,7 @@ import { useLogout } from '@/features/auth/use-session';
 import { activeGoalFor, useGoals } from '@/features/goals/api';
 import { GoalCard } from '@/features/goals/GoalCard';
 import { GoalEditorSheet } from '@/features/goals/GoalEditorSheet';
+import { usePushDevices, useReminders } from '@/features/reminders/api';
 import { todayKey } from '@/lib/dates';
 import { useTheme, type ThemePreference } from '@/lib/theme';
 import { AboutCard } from './AboutCard';
@@ -44,14 +45,15 @@ export function MorePage() {
   // sheet waits for the list so the form mounts with the right defaults.
   const prefill = activeGoalFor(goals.data, todayKey()) ?? goals.data?.[0] ?? null;
 
-  // Section order follows DESIGN §7: goal, adherence (+ week start), library, appearance, profile,
-  // data, security, about. On desktop only the goal spans both columns, so the eight other cards
-  // pair up without an orphan row.
+  // Section order follows DESIGN §7: goal, reminders, adherence (+ week start), library, appearance,
+  // profile, data, security, about. On desktop the goal and the reminders row span both columns,
+  // so the eight other cards pair up without an orphan row.
   return (
     <>
       <PageHeader title="More" description="Goal, preferences, data, security and app details." />
       <div className="grid gap-4 lg:grid-cols-2">
         <GoalCard onEdit={openEditor} className="lg:col-span-2" />
+        <RemindersCard />
         <AdherenceCard />
         <WeekStartCard />
         <LibraryCard />
@@ -79,6 +81,35 @@ function AppearanceCard() {
         onChange={setPreference}
         options={THEME_OPTIONS}
       />
+    </Card>
+  );
+}
+
+/** One-row link card to More → Reminders (FR-N) with the current state as its subtitle. */
+function RemindersCard() {
+  const reminders = useReminders();
+  const devices = usePushDevices();
+  let status = 'Loading…';
+  if (reminders.isError) status = 'Could not load the reminder settings.';
+  else if (reminders.data) {
+    if (!reminders.data.enabled) status = 'Off';
+    else if (devices.data === undefined) status = 'On';
+    else if (devices.data.length === 0) status = 'On · no device enabled yet';
+    else status = `On · ${devices.data.length} ${devices.data.length === 1 ? 'device' : 'devices'}`;
+  }
+  return (
+    <Card className="p-0 lg:col-span-2">
+      <Link
+        to="/more/reminders"
+        className="hover:bg-surface-2 flex items-center gap-3 rounded-card px-4 py-3.5 transition-colors sm:px-5"
+      >
+        <Bell className="text-fg-muted size-5" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="text-fg block text-sm font-medium">Reminders</span>
+          <span className="text-fg-muted block truncate text-xs">{status}</span>
+        </span>
+        <ChevronRight className="text-fg-faint size-4" aria-hidden="true" />
+      </Link>
     </Card>
   );
 }

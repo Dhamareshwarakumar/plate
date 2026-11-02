@@ -57,6 +57,15 @@ export const aboutKeys = {
   all: ['about'] as const,
 };
 
+export const reminderKeys = {
+  all: ['reminders'] as const,
+};
+export const pushKeys = {
+  all: ['push'] as const,
+  vapid: ['push', 'vapid'] as const,
+  devices: ['push', 'devices'] as const,
+};
+
 export const weightKeys = {
   all: ['weights'] as const,
   list: ['weights', 'list'] as const,
