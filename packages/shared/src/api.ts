@@ -10,6 +10,8 @@ export const apiErrorCodeSchema = z.enum([
   'RATE_LIMITED',
   'INVALID_CREDENTIALS',
   'INTERNAL_ERROR',
+  /** A third-party service the server proxied to (Open Food Facts) failed or timed out. */
+  'UPSTREAM_ERROR',
 ]);
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 
@@ -41,6 +43,8 @@ export const aboutResponseSchema = z.object({
     /** Distinct diary days. */
     days: z.number().int().nonnegative(),
   }),
+  /** Whether the Open Food Facts proxy is on (`OFF_LOOKUP_ENABLED`); hides "Search online" when false. */
+  offEnabled: z.boolean(),
 });
 export type AboutResponse = z.infer<typeof aboutResponseSchema>;
 

@@ -37,4 +37,13 @@ describe('foodInputSchema', () => {
         .success,
     ).toBe(false);
   });
+  it('defaults offCode to null and accepts only digit codes', () => {
+    expect(foodInputSchema.parse({ name: 'x', per100 }).offCode).toBeNull();
+    expect(foodInputSchema.parse({ name: 'x', per100, offCode: '5000159484695' }).offCode).toBe(
+      '5000159484695',
+    );
+    const r = foodInputSchema.safeParse({ name: 'x', per100, offCode: 'x' });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0]?.path).toEqual(['offCode']);
+  });
 });

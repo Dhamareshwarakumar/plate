@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { nutrientsPer100Schema } from './nutrition.js';
+import { offCodeSchema } from './off.js';
 import { optionalTrimmed, trimmed } from './zod-helpers.js';
 
 export const FOOD_NAME_MAX = 120;
@@ -82,6 +83,8 @@ export const foodInputSchema = z.object({
   basis: foodBasisSchema.default('g'),
   per100: nutrientsPer100Schema,
   portions: z.array(portionInputSchema).max(PORTIONS_MAX).default([]),
+  /** Open Food Facts product code when the values came from a lookup (FR-F5); sets `source = 'off'`. */
+  offCode: offCodeSchema.nullable().default(null),
 });
 export type FoodInput = z.input<typeof foodInputSchema>;
 export type FoodInputParsed = z.output<typeof foodInputSchema>;
@@ -96,6 +99,7 @@ export const foodSchema = z.object({
   per100: nutrientsPer100Schema,
   portions: z.array(portionSchema),
   source: foodSourceSchema,
+  offCode: z.string().nullable(),
   /** Dishes only: set when an ingredient changed after the last calculation (FR-R2). Null for foods. */
   staleSince: isoDateTimeSchema.nullable(),
   archivedAt: isoDateTimeSchema.nullable(),

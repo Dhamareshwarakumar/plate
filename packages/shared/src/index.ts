@@ -10,6 +10,7 @@ export * from './insights.js';
 export * from './mealSlots.js';
 export * from './mealTemplates.js';
 export * from './nutrition.js';
+export * from './off.js';
 export * from './settings.js';
 export * from './water.js';
 export * from './weight.js';
