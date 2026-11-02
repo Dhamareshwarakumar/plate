@@ -159,6 +159,18 @@ describe('validation', () => {
     // Renaming a template to its own name is fine.
     const same = await api('PUT', `/api/meal-templates/${first.id}`, breakfastInput());
     expect(same.statusCode, same.body).toBe(200);
+    // Renaming it onto another template's name is the same conflict, and nothing is written.
+    const second = await createTemplate({ name: 'Light lunch' });
+    const clash = await api('PUT', `/api/meal-templates/${second.id}`, {
+      ...breakfastInput(),
+      name: ' usual breakfast ',
+    });
+    expect(clash.statusCode).toBe(409);
+    expect(clash.json().error.code).toBe('CONFLICT');
+    expect(clash.json().error.details).toEqual({ templateId: first.id });
+    expect((await api('GET', `/api/meal-templates/${second.id}`)).json<MealTemplate>().name).toBe(
+      'Light lunch',
+    );
   });
 
   it('404s on unknown templates', async () => {

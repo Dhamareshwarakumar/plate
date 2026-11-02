@@ -183,12 +183,16 @@ describe('GET /api/off/product/:code', () => {
   });
 
   it('answers 404 NOT_FOUND for an unknown code (status 0 body or upstream 404)', async () => {
-    stubFetch(() =>
+    const fetchMock = stubFetch(() =>
       Promise.resolve(json({ code: '00000000', status: 0, status_verbose: 'product not found' })),
     );
     let res = await get('/api/off/product/00000000');
     expect(res.statusCode).toBe(404);
     expect(res.json<ApiError>().error).toEqual({ code: 'NOT_FOUND', message: 'Product not found' });
+    // The miss is cached like a hit: a rescan of the same unknown code stays off the network.
+    res = await get('/api/off/product/00000000');
+    expect(res.statusCode).toBe(404);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     vi.unstubAllGlobals();
     stubFetch(() => Promise.resolve(json({ status: 0 }, 404)));
@@ -207,9 +211,26 @@ describe('GET /api/off/product/:code', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('answers 502 on a timeout', async () => {
+  it('answers 502 on a timeout, also when it fires while the body is still arriving', async () => {
     stubFetch(() => Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
-    const res = await get('/api/off/product/5000159484695');
+    let res = await get('/api/off/product/5000159484695');
+    expect(res.statusCode).toBe(502);
+    expect(res.json<ApiError>().error.message).toMatch(/did not respond/);
+
+    vi.unstubAllGlobals();
+    stubFetch(() =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              controller.error(new DOMException('The operation timed out', 'TimeoutError'));
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
+    res = await get('/api/off/product/5000159484695');
     expect(res.statusCode).toBe(502);
     expect(res.json<ApiError>().error.message).toMatch(/did not respond/);
   });

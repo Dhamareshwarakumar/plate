@@ -71,6 +71,18 @@ describe('computeDishPer100', () => {
     expect(() => computeDishPer100(dal, Number.NaN)).toThrow(RangeError);
   });
 
+  it('stays within bounds on the 900 kcal edge instead of failing on float noise', () => {
+    // 900 × 1.1 × (100 / 110) is 900.0000000000001 in IEEE 754; the result is rounded to 1e-6.
+    const pureGhee = computeDishPer100([{ per100: ghee, amount: 110 }], 110);
+    expect(pureGhee.kcal).toBe(900);
+    expect(pureGhee.fat).toBe(100);
+    expect(dishPer100WithinBounds(pureGhee)).toBe(true);
+    // A real excess is still caught.
+    expect(dishPer100WithinBounds(computeDishPer100([{ per100: ghee, amount: 110 }], 109))).toBe(
+      false,
+    );
+  });
+
   it('keeps an optional nutrient null only when every ingredient lacks it', () => {
     const none = computeDishPer100(
       [

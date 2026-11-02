@@ -97,6 +97,14 @@ export function dishRawWeight(ingredients: readonly { amount: number }[]): numbe
 }
 
 /**
+ * Computed per-100 values are rounded to a millionth: label data has at most two decimals, and the
+ * raw floats could sit a hair above a physical bound (900 × 1.1 × 100 / 110 > 900 in IEEE 754),
+ * which `dishPer100WithinBounds` would then reject.
+ */
+const PER100_PRECISION = 1e6;
+const roundPer100 = (value: number) => Math.round(value * PER100_PRECISION) / PER100_PRECISION;
+
+/**
  * Per-100 g nutrition of a dish: `Σ(per100 × amount / 100) / cookedWeight × 100` for every
  * nutrient (TECH §4). Optional nutrients stay null only when no ingredient has a value.
  */
@@ -124,14 +132,14 @@ export function computeDishPer100(
   );
   const factor = 100 / cookedWeight;
   return {
-    kcal: total.kcal * factor,
-    protein: total.protein * factor,
-    carbs: total.carbs * factor,
-    fat: total.fat * factor,
-    fiber: total.fiber === null ? null : total.fiber * factor,
-    sugar: total.sugar === null ? null : total.sugar * factor,
-    saturatedFat: total.saturatedFat === null ? null : total.saturatedFat * factor,
-    sodiumMg: total.sodiumMg === null ? null : total.sodiumMg * factor,
+    kcal: roundPer100(total.kcal * factor),
+    protein: roundPer100(total.protein * factor),
+    carbs: roundPer100(total.carbs * factor),
+    fat: roundPer100(total.fat * factor),
+    fiber: total.fiber === null ? null : roundPer100(total.fiber * factor),
+    sugar: total.sugar === null ? null : roundPer100(total.sugar * factor),
+    saturatedFat: total.saturatedFat === null ? null : roundPer100(total.saturatedFat * factor),
+    sodiumMg: total.sodiumMg === null ? null : roundPer100(total.sodiumMg * factor),
   };
 }
 

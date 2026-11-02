@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dayKeySchema } from './days.js';
 import { foodBasisSchema, foodKindSchema, foodSourceSchema } from './foods.js';
 import { activitySchema, sexSchema } from './settings.js';
 
@@ -200,6 +201,15 @@ export const restoreRequestSchema = z.object({
   backup: z.record(z.string(), z.unknown()),
 });
 export type RestoreRequest = z.infer<typeof restoreRequestSchema>;
+
+/**
+ * `GET backup.json?day=` / `GET backup.sqlite?day=`: the client's local day for the download's file
+ * name (the server may run in UTC inside Docker); without it the server's own local day is used.
+ */
+export const backupDownloadQuerySchema = z.object({
+  day: dayKeySchema.optional(),
+});
+export type BackupDownloadQuery = z.infer<typeof backupDownloadQuerySchema>;
 
 const rowCount = z.number().int().nonnegative();
 export const restoreResultSchema = z.object({

@@ -94,6 +94,7 @@ describe('validation', () => {
 
     const del = await api('DELETE', '/api/weights/2025-02-30');
     expect(del.statusCode).toBe(400);
+    expect(paths(del)).toEqual(['day']);
 
     const range = await api('GET', '/api/weights?from=2025-10-19&to=2025-10-18');
     expect(range.statusCode).toBe(400);

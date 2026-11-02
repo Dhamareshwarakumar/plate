@@ -95,6 +95,12 @@ describe('meal slots', () => {
     expect((await listSlots()).some((s) => s.id === slot.id)).toBe(false);
     expect((await listSlots(true)).some((s) => s.id === slot.id)).toBe(true);
 
+    // Archiving again is a no-op: the original archive time stays.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const again = await api('POST', `/api/meal-slots/${slot.id}/archive`);
+    expect(again.statusCode).toBe(200);
+    expect(again.json<MealSlot>().archivedAt).toBe(archived.json<MealSlot>().archivedAt);
+
     const restored = await api('POST', `/api/meal-slots/${slot.id}/unarchive`);
     expect(restored.json<MealSlot>().archivedAt).toBeNull();
   });

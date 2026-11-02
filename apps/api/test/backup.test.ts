@@ -468,6 +468,26 @@ describe('GET /api/backup.sqlite', () => {
   });
 });
 
+describe('download file names', () => {
+  it("date the file with the client's day when given, and reject an impossible one with path day", async () => {
+    const json = await ok(api('GET', '/api/backup.json?day=2025-10-19'));
+    expect(json.headers['content-disposition']).toBe(
+      'attachment; filename="plate-backup-2025-10-19.json"',
+    );
+    const sqlite = await ok(api('GET', '/api/backup.sqlite?day=2025-10-19'));
+    expect(sqlite.headers['content-disposition']).toBe(
+      'attachment; filename="plate-2025-10-19.sqlite"',
+    );
+
+    for (const url of ['/api/backup.json?day=2025-02-30', '/api/backup.sqlite?day=today']) {
+      const res = await api('GET', url);
+      expect(res.statusCode, url).toBe(400);
+      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+      expect(paths(res)).toEqual(['day']);
+    }
+  });
+});
+
 describe('GET /api/about', () => {
   it('reports version, database size, file name and counts', async () => {
     const about = (await ok(api('GET', '/api/about'))).json<AboutResponse>();

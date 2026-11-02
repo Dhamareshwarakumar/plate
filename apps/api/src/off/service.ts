@@ -27,11 +27,17 @@ const timeoutError = () =>
   new AppError(502, 'UPSTREAM_ERROR', 'Open Food Facts did not respond in time');
 const unavailableError = () =>
   new AppError(502, 'UPSTREAM_ERROR', 'Open Food Facts is unavailable right now');
+const isTimeout = (err: unknown) =>
+  err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+
+/** Cached answer: search results, one product, or `null` for a barcode OFF does not know. */
+type CacheEntry = OffResult[] | OffResult | null;
 
 /**
  * Server-side proxy to Open Food Facts (FR-F5). The browser never talks to OFF (NFR-7): the API
- * fetches with a 5 s timeout, keeps a small LRU of recent answers and maps the upstream shape to
- * `offResultSchema`. Disabled installs answer 404 for both routes.
+ * fetches with a 5 s timeout, keeps a small LRU of recent answers (unknown barcodes included, so a
+ * repeated scan of an unlisted product does not reach upstream again within the TTL) and maps the
+ * upstream shape to `offResultSchema`. Disabled installs answer 404 for both routes.
  */
 export class OffLookupService {
   readonly enabled: boolean;
@@ -39,7 +45,7 @@ export class OffLookupService {
   private readonly timeoutMs: number;
   private readonly baseUrl: string;
   private readonly logger: OffLookupOptions['logger'];
-  private readonly cache: LruCache<OffResult[] | OffResult>;
+  private readonly cache: LruCache<CacheEntry>;
 
   constructor(options: OffLookupOptions) {
     this.enabled = options.enabled;
@@ -74,12 +80,13 @@ export class OffLookupService {
     this.assertEnabled();
     const key = `product:${code}`;
     const cached = this.cache.get(key);
+    if (cached === null) throw notFoundError();
     if (cached && !Array.isArray(cached)) return cached;
     const url = `${this.baseUrl}/api/v2/product/${code}.json?fields=${FIELDS}`;
     const body = await this.fetchJson(url, { notFoundIsNull: true });
     const item = body === null ? null : mapOffProductResponse(body);
-    if (!item) throw notFoundError();
     this.cache.set(key, item);
+    if (!item) throw notFoundError();
     return item;
   }
 
@@ -103,9 +110,8 @@ export class OffLookupService {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (err) {
-      const name = err instanceof Error ? err.name : 'Error';
       this.logger?.warn({ err, url }, 'open food facts request failed');
-      if (name === 'TimeoutError' || name === 'AbortError') throw timeoutError();
+      if (isTimeout(err)) throw timeoutError();
       throw unavailableError();
     }
     if (response.status === 404 && options.notFoundIsNull) return null;
@@ -116,6 +122,11 @@ export class OffLookupService {
     try {
       return await response.json();
     } catch (err) {
+      // The 5 s timeout can also fire while the body is still arriving.
+      if (isTimeout(err)) {
+        this.logger?.warn({ err, url }, 'open food facts request failed');
+        throw timeoutError();
+      }
       this.logger?.warn({ err, url }, 'open food facts returned invalid JSON');
       throw unavailableError();
     }

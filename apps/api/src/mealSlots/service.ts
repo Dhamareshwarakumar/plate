@@ -95,7 +95,9 @@ export class MealSlotService {
   /** Archiving the last active slot is refused: logging always needs somewhere to go. */
   setArchived(id: number, archived: boolean): MealSlot {
     const current = this.get(id);
-    if (archived && current.archivedAt === null) {
+    // Already in the requested state: keep the original `archivedAt` rather than refreshing it.
+    if (archived === (current.archivedAt !== null)) return current;
+    if (archived) {
       const others = this.db
         .select({ n: count() })
         .from(mealSlots)

@@ -18,8 +18,15 @@ export function isOffBarcode(query: string): boolean {
 
 export const offCodeSchema = z.string().trim().regex(OFF_CODE_RE, 'Enter a barcode (digits only)');
 
+/** Longest free-text query the proxy accepts; the lookup sheet caps its input at the same length. */
+export const OFF_QUERY_MAX = 100;
+
 export const offSearchQuerySchema = z.object({
-  q: z.string().trim().min(2, 'Type at least 2 characters').max(100, 'At most 100 characters'),
+  q: z
+    .string()
+    .trim()
+    .min(2, 'Type at least 2 characters')
+    .max(OFF_QUERY_MAX, `At most ${OFF_QUERY_MAX} characters`),
 });
 export type OffSearchQuery = z.infer<typeof offSearchQuerySchema>;
 
