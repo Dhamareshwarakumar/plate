@@ -419,3 +419,106 @@ code is testable.
 
 Same as AGENTS.md: `pnpm check` green, `pnpm e2e` green, screenshots inspected, docs/DECISIONS
 updated, committed on `main`, and `git push origin main` at the end (the user deploys from GitHub).
+
+---
+
+## Phase 11 — AI assistance (approved by the user; optional feature, off unless a key is configured)
+
+Three features, all **confirm-first**: the model proposes, the user edits and confirms, only then is
+anything written. Everything the user types or photographs for these features is sent to the
+configured provider; nothing else leaves the Pi. State that plainly in the UI and README.
+
+### Configuration (API)
+
+- `AI_PROVIDER` = `none` (default) | `gemini` | `openai_compatible`; `AI_API_KEY`; `AI_MODEL`
+  (default per provider: the current Gemini Flash model — check the provider's model list at
+  implementation time and record the chosen default in DECISIONS.md); `AI_BASE_URL` (OpenAI-compatible
+  only, e.g. OpenRouter, Alibaba DashScope compatible mode, Moonshot); `AI_TIMEOUT_MS` (default
+  30000); `AI_MAX_IMAGE_BYTES` (default 4 MB). The key never reaches the browser. `GET about` gains
+  `ai: { enabled, provider, model }`. A dev/test-only `AI_PROVIDER=fake` driver returns canned
+  responses for screenshots and tests; it must be opt-in by that exact value and documented as such.
+- `AiProvider` interface: `complete({ system, parts: ({ text } | { imageBase64, mimeType })[],
+jsonSchema, maxOutputTokens })` → raw JSON string. Drivers: Gemini (`generateContent` with
+  `responseMimeType: 'application/json'` + `responseSchema`), OpenAI-compatible (`chat/completions`
+  with `response_format: { type: 'json_schema' }`, falling back to `json_object` when the server
+  rejects it). The service validates every response with zod; on invalid JSON it retries once with
+  the validation error appended. Timeouts via `AbortSignal.timeout`. Errors are mapped to a new
+  shared code `AI_UNAVAILABLE` (502) with a user-readable message; the key is never logged.
+- Rate cap 30 requests/min per IP on all AI routes; a `ai_usage(id, feature, requested_at,
+input_tokens, output_tokens, ok)` table for the usage counter shown in settings. Migration
+  `0007_ai_usage`; also add `'ai'` to the shared `foodSourceSchema` and a nullable
+  `foods.estimated_at` column (set when a food's nutrition came from the model; cleared when the user
+  saves the food after editing nutrition).
+
+### Shared (`ai.ts`)
+
+- `aiParseMealRequestSchema { text?: string (≤ 2000), image?: { mimeType: 'image/jpeg' | 'image/png'
+| 'image/webp', base64 }, day, slotId }` (text or image required) →
+  `aiParseMealResponseSchema { items: [{ description, matchedFoodId: number | null, quantity > 0,
+basis, confidence: 'low' | 'medium' | 'high', suggestedFood: { name, brand: null, basis, per100,
+portions: [{ label, amount }] } | null }], notes: string | null }`.
+- `aiEstimateFoodRequestSchema { name, brand?, description? }` → `{ per100, basis, portions,
+confidence, rationale (≤ 300) }`.
+- `aiRecipeRequestSchema { text (≤ 8000) }` → `{ name, ingredients: [{ description, matchedFoodId |
+null, amount, suggestedFood | null }], cookedWeight: number | null, servings: number | null }`.
+- `aiWeeklyDigestRequestSchema { weekStart (Monday day key) }` → `{ weekStart, lines: string[] (3–5),
+suggestion: string, generatedAt, model }`.
+- Prompt-building helpers are pure functions with unit tests (library index formatting, truncation,
+  system prompt text), so prompts are reviewable in one place: `packages/shared/src/ai-prompts.ts`.
+
+### API behaviour
+
+- Library matching: the prompt includes a compact index of the user's active foods and dishes
+  (`id | name | brand | basis | kcal/100`), at most 1500 rows; beyond that, the 300 most recently
+  used plus fuzzy matches of the request text. The server rejects `matchedFoodId`s that do not exist
+  and turns them into `suggestedFood: null` items the UI shows as "needs a food".
+- Routes (guarded): `POST ai/parse-meal`, `POST ai/estimate-food`, `POST ai/parse-recipe`,
+  `POST ai/weekly-digest` (cached per week in `settings` key `ai.digest.<weekStart>`; `?refresh=true`
+  regenerates), `GET ai/usage` (counts for today / last 30 days). The digest prompt receives only the
+  numbers the Insights service already computes for that week (no raw entries).
+- Tests: drivers with mocked `fetch` (request shape incl. schema, header with key, timeout → 502,
+  invalid JSON retry path); routes with the fake provider (401, 400 on missing text and image,
+  oversized image 413 → mapped 400 with path `image`, unknown matched ids sanitised, usage rows
+  written, digest cache hit/refresh); prompt helpers unit-tested.
+
+### Web
+
+- Hidden entirely unless `about.ai.enabled`. More → "AI assistant" card: provider/model, requests
+  today and last 30 days, privacy paragraph, how to enable (README link) when disabled.
+- Log sheet step 1: "Describe or photograph" action (Sparkles icon) → `AiLogSheet`: text area with
+  dictation button when `webkitSpeechRecognition`/`SpeechRecognition` exists, photo button (`<input
+type="file" accept="image/*" capture="environment">`), client-side resize to ≤ 1280 px JPEG q0.8
+  before upload, "Analyse" → review list: each item shows matched food name or an "Estimated, new
+  food" tag, editable quantity (`NumberField`), confidence pill, remove; "Log N items" creates the
+  suggested foods (source `ai`, `estimated_at` set) via the existing mutations, then logs entries into
+  the chosen slot. Loading state with the elapsed-time hint; error state with retry; empty result
+  state.
+- Food editor: "Estimate with AI" next to "Search online" → fills nutrition + portions, shows an
+  "Estimated by AI; verify against a label when you can" notice (the `estimated_at` tag is shown in
+  the library rows as "Estimated").
+- Dish editor: "Paste a recipe" → sheet with text area → prefill name, ingredients (matched or
+  suggested, created on save), cooked weight, servings.
+- Insights (Week range): "Weekly digest" card with Generate / Regenerate, the lines, the suggestion,
+  generatedAt and model in small text; cached result shown immediately.
+- Screenshots `tools/shots/phase11-ai.mjs` with `AI_PROVIDER=fake` on a second API instance (do not
+  change the user's dev `.env`), covering every state above.
+
+### Docs
+
+- README "AI assistance (optional)": getting a Gemini API key from Google AI Studio, the env vars,
+  OpenAI-compatible alternatives (OpenRouter/Qwen/Kimi) with `AI_BASE_URL`, expected cost at single-user
+  volume, exactly what data is sent. TECH.md §7 exception list updated; DECISIONS.md entries.
+
+### Live smoke test (once, by hand, not in `pnpm check`)
+
+`apps/api/.env` on this machine contains a real `AI_PROVIDER=gemini` + `AI_API_KEY` (git-ignored;
+never print, log, copy or commit it; never paste it into reports). Against the dev API, run one text
+parse ("2 rotis, a bowl of dal, one banana"), one photo parse (any food photo, e.g. a public-domain
+JPEG downloaded to /tmp), one food estimate ("homemade sambar") and one weekly digest, and record in
+DECISIONS.md: the model used, response times, whether the schema-constrained JSON came back valid on
+the first try, and any request-shape fix the live call forced. Keep live calls to a handful.
+
+### Definition of done
+
+AGENTS.md definition plus: the live smoke test above recorded, `pnpm check` and `pnpm e2e` green, Docker image builds, `git push origin
+main`, and a report of the exact env lines the user must add to `.env` on the Pi.
