@@ -11,7 +11,9 @@ silent, choose the option most consistent with DESIGN.md and record the choice i
 ```sh
 pnpm install                       # once
 pnpm dev                           # API 127.0.0.1:8080 (tsx watch) + web 127.0.0.1:5173 (vite, proxies /api)
-pnpm check                         # typecheck + lint + prettier check + all tests. MUST be green before every commit.
+pnpm check                         # typecheck + lint + prettier check + all tests + bundle:check (builds web). MUST be green before every commit.
+pnpm bundle:check                  # web build + tools/check-bundle.mjs: entry + modulepreload JS ≤ 250 kB gzip
+pnpm e2e                           # builds all, starts the prod API on a free port with a temp DB, runs apps/web/e2e in Chrome (slow; not in check)
 pnpm format                        # prettier --write
 pnpm --filter @plate/api test      # vitest, in-memory SQLite per test file
 pnpm --filter @plate/api db:generate   # drizzle-kit: generate a migration from src/db/schema.ts (see "Migrations")
@@ -35,13 +37,16 @@ apps/api/src          config.ts, app.ts (plugin/route registration), server.ts, 
   auth/               password, sessions, throttle, plugin (requireSession)
 apps/api/test         *.test.ts using test/helpers.ts (createTestApp, login)
 apps/web/src
-  app/                router.tsx, App.tsx, layout/AppShell.tsx (tab bar + sidebar), providers
+  app/                router.tsx (React.lazy pages via lazy.ts), App.tsx, layout/ (AppShell: tab bar + sidebar, RootLayout, ShortcutsHelp), providers
   features/<domain>/  api.ts (TanStack Query hooks), pages, components
-  components/ui/      primitives (see below)   components/  page-header, placeholder-page, brand-mark
-  lib/                api.ts (apiRequest/ApiClientError), theme.tsx, search.ts, cn.ts
+  components/ui/      primitives (see below)   components/  page-header, shell-skeleton, brand-mark
+  lib/                api.ts (apiRequest/ApiClientError), theme.tsx, search.ts, keyboard.ts, cn.ts
+  pwa/                register.ts (service worker, update toast) + test
   styles/globals.css  Tailwind 4 tokens, dark mode class, utilities, keyframes
-docker/               Dockerfile, docker-compose.yml, .env.example, healthcheck.mjs, Caddyfile
-tools/shots/          screenshot scripts
+apps/web/e2e          Playwright config, fixtures, *.spec.ts (own tsconfig; run with pnpm e2e)
+apps/web/public/      static files copied verbatim (theme-init.js, icons); eslint-ignored
+docker/               Dockerfile (alpine, non-root), docker-compose.yml (name: plate), .env.example, healthcheck.mjs, Caddyfile
+tools/                check-bundle.mjs, e2e.mjs, seed-demo.mjs, shots/ (screenshot scripts)
 ```
 
 ## Conventions that must hold
@@ -84,9 +89,10 @@ sizes sm/md/lg/icon/icon-sm, `loading`), `Input`, `PasswordInput`, `NumberField`
 `Card`/`CardTitle`/`CardDescription`, `Sheet` (bottom sheet on phones, dialog on ≥sm; `title`,
 `description`, `footer`, `locked`), `ConfirmDialog`, `Menu`/`MenuItem`/`MenuSeparator`, `Skeleton`,
 `Spinner`, `EmptyState`, `ErrorState`, `Ring` (SVG progress ring, `status` colours, `role="progressbar"`),
-`Bar` (slim macro bar with hatched overflow), `Slider` (Radix, single value, `onValueCommit`). Also
-`PageHeader`, `PlaceholderPage` (remove usages as phases land), `BrandMark`. Add new primitives there
-when a pattern repeats; keep them accessible (Radix underneath, keyboard operable, aria labels).
+`Bar` (slim macro bar with hatched overflow), `Slider` (Radix, single value, `onValueCommit`), `Kbd`,
+`focus.ts` (`rememberOpener`/`restoreFocus`: sheets and dialogs return focus to the opener or `#main`).
+Also `PageHeader`, `ShellSkeleton`/`PageSkeleton`, `BrandMark`. Add new primitives there when a pattern
+repeats; keep them accessible (Radix underneath, keyboard operable, aria labels).
 
 **Design tokens** (globals.css, Tailwind 4): colours `bg surface surface-2 surface-3 border
 border-strong fg fg-muted fg-faint accent accent-hover accent-soft accent-fg ring overlay`, fixed
@@ -108,8 +114,9 @@ option objects conditionally or use `NonNullable<...>`. `no-unnecessary-type-ass
 
 **Security (do not weaken).** All data routes behind `requireSession`; API binds `127.0.0.1` outside
 Docker; compose publishes `127.0.0.1` by default; no secrets in the repo; cookies stay
-HttpOnly/SameSite=Strict; CSP stays strict (no inline scripts); the only outbound call is the optional
-Open Food Facts proxy (Phase 8) behind `OFF_LOOKUP_ENABLED`.
+HttpOnly/SameSite=Strict; CSP stays strict (no inline scripts: anything that must run before React goes
+in `apps/web/public/*.js`, like `theme-init.js`); the only outbound call is the optional Open Food Facts
+proxy (Phase 8) behind `OFF_LOOKUP_ENABLED`.
 
 **Git.** Work on `main` in this checkout (no worktrees; phases are sequential). Before committing:
 `git status`, then `pnpm check` must exit 0. Conventional commits (`feat(api): …`, `feat(web): …`,
@@ -124,6 +131,5 @@ Open Food Facts proxy (Phase 8) behind `OFF_LOOKUP_ENABLED`.
    and the PNGs inspected; layout defects fixed (overlaps, clipped text, missing padding, unreadable
    contrast).
 4. Manual API smoke with curl for anything not covered by tests.
-5. `PlaceholderPage` usage for the phase's screen removed; DESIGN.md flows match what was built;
-   deviations and decisions appended to DECISIONS.md.
+5. DESIGN.md flows match what was built; deviations and decisions appended to DECISIONS.md.
 6. Committed.

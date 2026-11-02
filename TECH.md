@@ -7,7 +7,7 @@
         │  HTTPS (reverse proxy you manage) or HTTP on the LAN
         ▼
  ┌───────────────────────────────── Docker container: plate ─────────────────────────────────┐
- │  Node 22 · Fastify                                                                        │
+ │  Node 24 · Fastify                                                                        │
  │   ├── /api/*          JSON API (session-cookie auth, Zod-validated)                       │
  │   ├── /api/off/*      server-side proxy to Open Food Facts (optional, env-gated)          │
  │   └── /*              static React build (PWA), SPA fallback                              │
@@ -26,31 +26,32 @@ plate/
 │   └── web/            React + Vite PWA
 ├── packages/
 │   └── shared/         Zod schemas, TS types, nutrition math, date helpers (used by both)
-├── docker/             Dockerfile, docker-compose.yml, .env.example
-├── REQUIREMENTS.md  DESIGN.md  DECISIONS.md  TECH.md  README.md
+├── docker/             Dockerfile, docker-compose.yml, .env.example, healthcheck.mjs, Caddyfile
+├── tools/              check-bundle.mjs (budget gate), e2e.mjs (Playwright runner), seed-demo.mjs, shots/ (screenshot scripts)
+├── REQUIREMENTS.md  DESIGN.md  DECISIONS.md  TECH.md  README.md  PHASES.md  AGENTS.md
 └── package.json  pnpm-workspace.yaml  tsconfig.base.json
 ```
 
 ## 2. Stack
 
-| Layer         | Choice                                                                                   | Why                                                                                                                                                                                       |
-| ------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime       | Node 24 LTS                                                                              | Active LTS; arm64 prebuilt binaries exist for both native dependencies (better-sqlite3, argon2). TypeScript is pinned to 5.9 because typescript-eslint does not support TypeScript 7 yet. |
-| HTTP          | Fastify 5                                                                                | Fast, schema-first, small footprint on a Pi; plugins for cookies, rate-limit, static, helmet.                                                                                             |
-| Validation    | Zod (shared) via `fastify-type-provider-zod`                                             | One schema per entity drives API validation, TS types and the UI forms.                                                                                                                   |
-| DB            | SQLite via `better-sqlite3`, Drizzle ORM + drizzle-kit migrations                        | Single file, synchronous and fast, trivial backup, no second container.                                                                                                                   |
-| Frontend      | React 18, TypeScript, Vite                                                               | Standard; Vite builds are fast and produce a static bundle.                                                                                                                               |
-| Styling       | Tailwind CSS + Radix UI primitives (shadcn/ui pattern)                                   | Full visual control for a mobile-first design; accessible primitives for dialogs, sheets, menus, tabs.                                                                                    |
-| Motion        | Framer Motion                                                                            | Springs, layout animations, gesture (swipe, drag) support.                                                                                                                                |
-| Charts        | Recharts                                                                                 | Composable SVG charts, responsive, good enough for bars/lines/donut; heatmap is hand-built with CSS grid.                                                                                 |
-| Data fetching | TanStack Query                                                                           | Caching, optimistic updates (log → ring animates instantly), retries, invalidation.                                                                                                       |
-| Routing       | React Router 7 (library mode)                                                            | URL-driven screens.                                                                                                                                                                       |
-| Forms         | react-hook-form + Zod resolver                                                           | Shared schemas validate on the client identically to the server.                                                                                                                          |
-| Dates         | date-fns                                                                                 | Tree-shakable, works with plain `YYYY-MM-DD` day keys.                                                                                                                                    |
-| Fuzzy search  | small in-house scorer (normalize, prefix/substring/typo distance)                        | Avoids a dependency; the library is a few thousand rows at most and is searched in memory on the client.                                                                                  |
-| PWA           | `vite-plugin-pwa` (Workbox)                                                              | Precache app shell; network-only for `/api`.                                                                                                                                              |
-| Tests         | Vitest (unit, API integration, jsdom component tests); Playwright smoke flows in phase 9 |                                                                                                                                                                                           |
-| Lint/format   | ESLint (typed rules) + Prettier; strict TS with `exactOptionalPropertyTypes`             |                                                                                                                                                                                           |
+| Layer         | Choice                                                                                          | Why                                                                                                                                                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime       | Node 24 LTS                                                                                     | Active LTS; arm64 prebuilt binaries exist for both native dependencies (better-sqlite3, argon2). TypeScript is pinned to 5.9 because typescript-eslint does not support TypeScript 7 yet.                       |
+| HTTP          | Fastify 5                                                                                       | Fast, schema-first, small footprint on a Pi; plugins for cookies, rate-limit, static, helmet.                                                                                                                   |
+| Validation    | Zod (shared) via `fastify-type-provider-zod`                                                    | One schema per entity drives API validation, TS types and the UI forms.                                                                                                                                         |
+| DB            | SQLite via `better-sqlite3`, Drizzle ORM + drizzle-kit migrations                               | Single file, synchronous and fast, trivial backup, no second container.                                                                                                                                         |
+| Frontend      | React 19, TypeScript, Vite (rolldown)                                                           | Standard; Vite builds are fast and produce a static bundle. Every page is a `React.lazy` chunk; the eager payload (entry + modulepreloads) is capped at 250 kB gzip by `tools/check-bundle.mjs`.                |
+| Styling       | Tailwind CSS + Radix UI primitives (shadcn/ui pattern)                                          | Full visual control for a mobile-first design; accessible primitives for dialogs, sheets, menus, tabs.                                                                                                          |
+| Motion        | `motion` (the Framer Motion successor, imported from `motion/react`)                            | Springs, layout animations, gesture (swipe, drag) support.                                                                                                                                                      |
+| Charts        | Recharts                                                                                        | Composable SVG charts, responsive, good enough for bars/lines/donut; heatmap is hand-built with CSS grid.                                                                                                       |
+| Data fetching | TanStack Query                                                                                  | Caching, optimistic updates (log → ring animates instantly), retries, invalidation.                                                                                                                             |
+| Routing       | React Router 7 (library mode)                                                                   | URL-driven screens.                                                                                                                                                                                             |
+| Forms         | react-hook-form + Zod resolver                                                                  | Shared schemas validate on the client identically to the server.                                                                                                                                                |
+| Dates         | date-fns                                                                                        | Tree-shakable, works with plain `YYYY-MM-DD` day keys.                                                                                                                                                          |
+| Fuzzy search  | small in-house scorer (normalize, prefix/substring/typo distance)                               | Avoids a dependency; the library is a few thousand rows at most and is searched in memory on the client.                                                                                                        |
+| PWA           | `vite-plugin-pwa` (Workbox), `registerType: 'prompt'`                                           | Precache app shell; network-only for `/api`; a new build waits for the user to tap **Update** in a toast (`src/pwa/register.ts`), with an hourly update check for installs that stay open.                      |
+| Tests         | Vitest (unit, API integration, jsdom component tests); `@playwright/test` e2e in `apps/web/e2e` | `pnpm check` runs the Vitest suites and the bundle budget; `pnpm e2e` builds everything, starts the production API on a free port with a temp database and runs the flows in Chrome (phone + desktop projects). |
+| Lint/format   | ESLint (typed rules) + Prettier; strict TS with `exactOptionalPropertyTypes`                    |                                                                                                                                                                                                                 |
 
 ## 3. Data model (SQLite, Drizzle)
 
@@ -144,11 +145,15 @@ apps/web/src/
 │   ├── insights/   RangePicker, StatTiles, CaloriesChart, MacrosChart, CalendarHeatmap, WeightVsIntake, TopFoods, BySlot
 │   ├── weight/     WeightSummary, WeightChart, WeightLogSheet, WeightList
 │   ├── settings/   GoalEditor + Calculator, SlotsManager, CategoriesManager, Appearance, Profile, DataTools, About
-│   └── auth/       LoginPage, session guard
-├── components/ui/  Button, Sheet, Dialog, Tabs, Chip, Ring, Bar, Skeleton, Toast, EmptyState, ErrorState, NumberField…
-├── lib/            api client (typed from shared), fuzzy search, formatters, theme, keyboard shortcuts, haptics (vibrate API where available)
-└── pwa/            manifest, icons, service-worker config
+│   └── auth/       LoginPage, session guard (RequireAuth: shell skeleton, "Can't reach Plate" + retry, login redirect)
+├── components/ui/  Button, Sheet, Dialog, Tabs, Chip, Ring, Bar, Skeleton, Toast, EmptyState, ErrorState, NumberField, Kbd, focus helpers…
+├── lib/            api client (typed from shared), fuzzy search, formatters, theme, keyboard shortcuts
+├── pwa/            register.ts: service-worker registration (prompt mode), "update available" toast, hourly update check
+└── e2e/            Playwright config, fixtures and specs (diary, goal, import, pwa, keyboard)
 ```
+
+- Routing: `app/router.tsx` lazy-loads every page (`app/lazy.ts`); a pathless root route and the shell's `<main>` provide the two Suspense boundaries (`ShellSkeleton`, `PageSkeleton`). Navigations are transitions, so a chunk load never flashes a fallback mid-session.
+- Keyboard: `lib/keyboard.ts` single-key shortcuts (desktop only; ignored in fields and while a dialog is open). `?` opens the shortcuts help from the shell. Sheets and dialogs return focus to their opener, or to `<main>` when the opener is gone (`components/ui/focus.ts`).
 
 - The food library is fetched once and cached (TanStack Query, `staleTime` 5 min, invalidated on edits); search and filtering happen client-side for instant response.
 - Logging uses **optimistic updates**: the entry appears and the ring animates before the server confirms; on failure it rolls back with a toast.
@@ -181,7 +186,8 @@ PWA installation (service worker, home-screen app) and the `Secure` cookie flag 
 
 ### 7.4 Other hardening
 
-- `@fastify/helmet` headers with a strict CSP (`default-src 'self'`; no inline scripts; images `self data:`), `X-Content-Type-Options`, `Referrer-Policy: no-referrer`.
+- `@fastify/helmet` headers with a strict CSP (`default-src 'self'`; `script-src 'self'`, so no inline scripts: the theme-before-first-paint bootstrap is the external `/theme-init.js`; images `self data: blob:`), `X-Content-Type-Options`, `Referrer-Policy: no-referrer`.
+- Rate limit (300 req/min per IP) is scoped to `/api`; the static shell is not counted, so a service-worker precache of ~80 files cannot lock the device out of the API.
 - Body limit 1 MB on JSON, 20 MB on CSV/JSON imports; multipart limited to one file.
 - All DB access through Drizzle's parameterized queries; CSV cells are typed and bounded; names capped at 120 chars.
 - Open Food Facts proxy: server-side only, 5 s timeout, 60 req/min cap, results cached in memory for 10 min, sends the User-Agent OFF asks for. Disabled by `OFF_LOOKUP_ENABLED=false` (default **true** because you accepted the feature; flip it if you want zero egress).
@@ -193,45 +199,49 @@ PWA installation (service worker, home-screen app) and the `Secure` cookie flag 
 
 ### 8.1 Image
 
-Multi-stage Dockerfile: `node:24-bookworm-slim` builder (pnpm install, build shared → api → web, prune to production deps) → runtime stage copies `apps/api/dist`, `apps/web/dist`, `node_modules` (with the arm64 `better-sqlite3` binary). Built for `linux/arm64` and `linux/amd64` with `docker buildx`; also buildable directly on the Pi with `docker compose build`.
+Multi-stage Dockerfile, both stages `node:24-alpine`: the builder runs `pnpm install --frozen-lockfile` (no compiler toolchain: better-sqlite3 and argon2 ship musl prebuilds, and pnpm is told not to run better-sqlite3's implicit `node-gyp rebuild`), builds shared → api → web and `pnpm deploy`s the API's production `node_modules`, then drops better-sqlite3's bundled SQLite source tree and the prebuilds for other platforms. The runtime stage copies `dist`, `drizzle`, `web` and `node_modules` with `COPY --chown=node:node` (a separate `chown -R` would duplicate every file into another layer) and runs as `node`. Result: ~315 MB (Debian variant was 565 MB), of which ~165 MB is the Node base image. Natives verified to load on `linux/arm64` (Docker Desktop) and `linux/amd64` (QEMU). The Pi builds natively with `docker compose up --build`; a multi-arch image is built with `docker buildx build --platform linux/arm64,linux/amd64 … --push` to a registry (see README).
 
 ### 8.2 Compose
 
 ```yaml
+name: plate # pinned: the folder is called docker/, which would otherwise be the project name
 services:
   plate:
-    image: plate:latest # or build: { context: .., dockerfile: docker/Dockerfile }
+    build: { context: .., dockerfile: docker/Dockerfile }
+    image: plate:latest
     restart: unless-stopped
     ports:
       - '${PLATE_BIND:-127.0.0.1}:${PLATE_PORT:-8080}:8080'
     environment:
-      DATABASE_PATH: /data/plate.db
-      APP_INITIAL_PASSWORD: ${APP_INITIAL_PASSWORD:?set in .env (used only until the first start)}
-      TRUST_PROXY: 'false'
-      OFF_LOOKUP_ENABLED: 'true'
+      APP_INITIAL_PASSWORD: ${APP_INITIAL_PASSWORD:?set APP_INITIAL_PASSWORD in .env}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      OFF_LOOKUP_ENABLED: ${OFF_LOOKUP_ENABLED:-true}
     volumes:
       - ./data:/data
     read_only: true
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
-    healthcheck: { test: ['CMD', 'node', 'healthcheck.js'], interval: 30s, timeout: 5s, retries: 3 }
+    healthcheck:
+      { test: ['CMD', 'node', '/app/healthcheck.mjs'], interval: 30s, timeout: 5s, retries: 3 }
 ```
 
-`.env.example` ships with `APP_INITIAL_PASSWORD=password` as you asked; change the password from Settings → Security after the first login. Sessions survive restarts because they live in the database; there is no second secret to manage.
+`DATABASE_PATH`, `HOST`, `PORT`, `WEB_DIST_DIR` and `MIGRATIONS_DIR` are baked into the image. `.env.example` ships with `APP_INITIAL_PASSWORD=password` as you asked; change the password from Settings → Security after the first login. Sessions survive restarts because they live in the database; there is no second secret to manage. The `data/` directory must be writable by uid 1000 (`mkdir -p data && sudo chown 1000:1000 data` before the first start; Docker would otherwise create it as root).
 
 ### 8.3 Operations
 
 - Migrations run automatically on startup (drizzle-kit generated SQL, applied in a transaction, logged).
-- Backups: in-app JSON export and `backup.sqlite` snapshot; README includes a one-line cron for a nightly `sqlite3 /data/plate.db ".backup /backups/plate-$(date +%F).db"` via `docker compose exec`.
-- Upgrade: pull/build new image, `docker compose up -d`; migrations are forward-only and tested against a copy of a real database before release.
+- Backups: a host-side cron runs `sqlite3 docker/data/plate.db ".backup '…/plate-$(date +%F).db'"` against the bind-mounted file (the image has no sqlite3 CLI; WAL mode makes the concurrent read safe) and prunes copies older than 30 days; the in-app JSON export, SQLite snapshot and CSVs are the hand-driven route. Restore = stop, replace `data/plate.db` (remove `-wal`/`-shm`), start.
+- Upgrade: back up, `git pull`, `docker compose up -d --build`; migrations are forward-only and run on startup. Open devices see the "update available" toast and reload on **Update**.
 - Resource footprint target on the Pi 5: < 150 MB RSS, idle CPU ≈ 0.
 
 ## 9. Testing
 
 - `packages/shared`: unit tests for every function in §4 with edge cases (zero quantity, zero kcal, missing optional nutrients, empty ranges, dish with cooked weight 0 rejected, timezone day boundaries).
 - `apps/api`: integration tests with an in-memory SQLite per test file, covering each route's happy path, validation failures, auth denial (every protected route returns 401 without a cookie), archive/delete rules, copy-day, goal-by-day resolution, CSV import preview and conflicts, backup round-trip.
-- `apps/web`: component tests for the LogSheet quantity math and the fuzzy search; Playwright smoke: login → add food → log 450 g → ring shows the right number → edit → delete → undo.
-- CI script `pnpm check` = typecheck + lint + all tests; it runs before every commit per the project's commit policy.
+- `apps/web`: component tests (jsdom) for the quantity math, fuzzy search, summary-card announcements, PWA update toast and more.
+- `apps/web/e2e` (`@playwright/test`, Chrome via `channel: 'chrome'`, production build + temp database): login → add food → log 450 g → summary shows 135 kcal → edit to 300 g → 90 → delete → undo; goal set → ring colour on target, then over; CSV import preview and import; manifest/icons/service worker, CSP-clean shell, API unreachable and real offline → error state with retry; desktop `?` help, Escape, focus return. Run with `pnpm e2e` (not part of `pnpm check`).
+- `pnpm check` = typecheck (including the e2e project) + lint + format check + all Vitest suites + `pnpm bundle:check` (web build and the 250 kB gzip eager-payload budget); it runs before every commit per the project's commit policy.
 
 ## 10. Build phases and acceptance
 
