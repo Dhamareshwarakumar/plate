@@ -29,6 +29,14 @@ services:
       OFF_LOOKUP_ENABLED: ${OFF_LOOKUP_ENABLED:-true}
       # Contact named in the VAPID token that accompanies every reminder (mailto: or https:).
       PUSH_VAPID_SUBJECT: ${PUSH_VAPID_SUBJECT:-mailto:plate@localhost}
+      # Optional AI assistance (meal parsing, estimates, recipes, weekly digest); off unless
+      # AI_PROVIDER is set in .env. See README "AI assistance (optional)".
+      AI_PROVIDER: ${AI_PROVIDER:-none}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      AI_MAX_IMAGE_BYTES: ${AI_MAX_IMAGE_BYTES:-4194304}
     volumes:
       # Created on first start if missing; the container fixes its ownership itself (docker/entrypoint.sh).
       - ./data:/data
