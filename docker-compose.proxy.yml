@@ -1,0 +1,18 @@
+# Use together with docker-compose.yml when a reverse proxy that runs in Docker (Nginx Proxy Manager,
+# Traefik, Caddy, ...) fronts Plate. Plate joins the proxy's network and publishes no host port, so
+# the proxy is the only way in. Set in .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.proxy.yml
+#   PROXY_NETWORK=<the proxy's docker network, see README>
+#   TRUST_PROXY=true
+# then `docker compose up -d` as usual and point the proxy at http://plate:8080.
+services:
+  plate:
+    ports: !reset []
+    networks:
+      - default
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:?set PROXY_NETWORK in .env to the reverse proxy's docker network name}

@@ -30,8 +30,50 @@ The only file you edit is `.env` (`apps/api/.env.example` is for local developme
 
 By default the app is published on `127.0.0.1` only. Pick one:
 
-1. **Reverse proxy with HTTPS (recommended).** Uncomment the `caddy` service at the bottom of `docker-compose.yml`, set `PLATE_DOMAIN` in `.env` to a DNS name that points at your static IP, set `TRUST_PROXY=true`, delete the `ports:` block on `plate`, forward 80/443 on your router to the Pi, then `docker compose up -d`. Caddy obtains and renews the certificate. HTTPS is also what makes the home-screen install (PWA) work, and it sets the `Secure` flag on the session cookie.
-2. **Plain HTTP on your network.** Set `PLATE_BIND=0.0.0.0` in `.env` and `docker compose up -d`. Every device that can reach the Pi can reach the login page; the password is sent over plain HTTP, and the browser will not offer "Add to Home Screen" as an app. Fine on a trusted home network.
+1. **Behind a reverse proxy you already run in Docker** (Nginx Proxy Manager, Traefik, Caddy):
+   see the next section. Plate joins the proxy's network and publishes no port at all.
+2. **Reverse proxy with the bundled Caddy.** Uncomment the `caddy` service at the bottom of
+   `docker-compose.yml`, set `PLATE_DOMAIN` in `.env` to a DNS name that points at your static IP,
+   set `TRUST_PROXY=true`, delete the `ports:` block on `plate`, forward 80/443 on your router to
+   the Pi, then `docker compose up -d`. Caddy obtains and renews the certificate.
+3. **Plain HTTP on your network.** Set `PLATE_BIND=0.0.0.0` in `.env` and `docker compose up -d`.
+   Every device that can reach the Pi can reach the login page; the password travels in clear text,
+   and the browser will not offer "Add to Home Screen" as an app. Only for a trusted home network.
+
+HTTPS (options 1 and 2) is what makes the home-screen install (PWA) work and sets the `Secure` flag
+on the session cookie.
+
+### Behind Nginx Proxy Manager (or another proxy container)
+
+The proxy container cannot reach a port bound to the Pi's `127.0.0.1`, so instead of publishing a
+port, Plate joins the proxy's Docker network and the proxy talks to it by container name.
+
+1. Find the proxy's network name:
+
+   ```sh
+   docker network ls                                   # e.g. npm_default, nginx-proxy-manager_default, proxy
+   docker inspect <npm-container> --format '{{range $k,$_ := .NetworkSettings.Networks}}{{$k}} {{end}}'
+   ```
+
+2. In `.env`, uncomment and fill in:
+
+   ```ini
+   COMPOSE_FILE=docker-compose.yml:docker-compose.proxy.yml
+   PROXY_NETWORK=npm_default        # the name from step 1
+   TRUST_PROXY=true                 # required: lets Plate see https and the real client address
+   ```
+
+3. `docker compose up -d`. `docker port plate` now prints nothing: the proxy is the only way in.
+
+4. In Nginx Proxy Manager, add a Proxy Host: domain `plate.example.com`, scheme `http`, forward
+   hostname `plate`, forward port `8080`, "Block Common Exploits" on. On the SSL tab request a
+   Let's Encrypt certificate and enable "Force SSL" and "HTTP/2". Nginx Proxy Manager forwards the
+   `Host` and `X-Forwarded-Proto` headers by default, which is all Plate needs.
+
+Why `TRUST_PROXY=true` matters: Plate rejects sign-in requests whose `Origin` does not match the
+scheme and host it believes it is serving. Behind a proxy it only learns the real `https://...`
+origin from the forwarded headers, and the login throttle keys on the real client address instead of
+the proxy's.
 
 ### Backups
 
