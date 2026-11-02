@@ -13,7 +13,11 @@ function toCategory(row: typeof categories.$inferSelect): Category {
 export class CategoryService {
   constructor(private readonly db: Db) {}
 
-  /** Inserts the default list exactly once per database, so archiving them all later sticks. */
+  /**
+   * Inserts the default list exactly once per database, so archiving them all later sticks. A
+   * table that already has rows (e.g. after restoring a backup written before the flag existed)
+   * counts as seeded and only gets the flag.
+   */
   seedDefaults(): number {
     const seeded = this.db
       .select()
@@ -22,6 +26,14 @@ export class CategoryService {
       .get();
     if (seeded) return 0;
     const now = new Date().toISOString();
+    const existing = this.db.select({ n: count() }).from(categories).get();
+    if ((existing?.n ?? 0) > 0) {
+      this.db
+        .insert(settings)
+        .values({ key: SEEDED_SETTING_KEY, valueJson: 'true', updatedAt: now })
+        .run();
+      return 0;
+    }
     this.db.transaction((tx) => {
       tx.insert(categories)
         .values(DEFAULT_CATEGORIES.map((name, i) => ({ name, sortOrder: i })))

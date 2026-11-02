@@ -10,6 +10,7 @@ import authPlugin from './auth/plugin.js';
 import { AuthService } from './auth/service.js';
 import { SessionStore } from './auth/sessions.js';
 import { FailureThrottle } from './auth/throttle.js';
+import { BackupService } from './backup/service.js';
 import { CategoryService } from './categories/service.js';
 import type { AppConfig } from './config.js';
 import type { Db } from './db/index.js';
@@ -21,7 +22,9 @@ import { GoalService } from './goals/service.js';
 import { InsightsService } from './insights/service.js';
 import { MealSlotService } from './mealSlots/service.js';
 import { MealTemplateService } from './mealTemplates/service.js';
+import { aboutRoutes } from './routes/about.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
+import { backupRoutes } from './routes/backup.js';
 import { categoryRoutes } from './routes/categories.js';
 import { diaryRoutes } from './routes/diary.js';
 import { dishRoutes } from './routes/dishes.js';
@@ -130,6 +133,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     settings: settingsService,
     weights: weightService,
   });
+  const backupService = new BackupService({
+    db,
+    sqlite,
+    dbPath: config.databasePath,
+    categories: categoryService,
+    mealSlots: mealSlotService,
+  });
 
   await app.register(
     async (api) => {
@@ -155,6 +165,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         await guarded.register(waterRoutes, { water: waterService });
         await guarded.register(weightRoutes, { weights: weightService });
         await guarded.register(insightsRoutes, { insights: insightsService });
+        await guarded.register(backupRoutes, { backup: backupService });
+        await guarded.register(aboutRoutes, { backup: backupService });
       });
     },
     { prefix: '/api' },

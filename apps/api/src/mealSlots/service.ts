@@ -24,7 +24,10 @@ export function toMealSlot(row: typeof mealSlots.$inferSelect): MealSlot {
 export class MealSlotService {
   constructor(private readonly db: Db) {}
 
-  /** Inserts the default slots exactly once per database. */
+  /**
+   * Inserts the default slots exactly once per database. A table that already has rows (e.g.
+   * after restoring a backup written before the flag existed) counts as seeded and only gets the flag.
+   */
   seedDefaults(): number {
     const seeded = this.db
       .select()
@@ -33,6 +36,14 @@ export class MealSlotService {
       .get();
     if (seeded) return 0;
     const now = new Date().toISOString();
+    const existing = this.db.select({ n: count() }).from(mealSlots).get();
+    if ((existing?.n ?? 0) > 0) {
+      this.db
+        .insert(settings)
+        .values({ key: SEEDED_SETTING_KEY, valueJson: 'true', updatedAt: now })
+        .run();
+      return 0;
+    }
     this.db.transaction((tx) => {
       tx.insert(mealSlots)
         .values(DEFAULT_MEAL_SLOTS.map((slot, i) => ({ ...slot, sortOrder: i })))
