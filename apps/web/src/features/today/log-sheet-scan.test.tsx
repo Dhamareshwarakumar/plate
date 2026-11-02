@@ -44,6 +44,7 @@ const oatly: Food = {
   source: 'off',
   // The 12-digit UPC-A form, as a CSV import could hold it; the scanner reports 13 digits.
   offCode: '049000006346',
+  estimatedAt: null,
   staleSince: null,
   archivedAt: null,
   createdAt: '2025-10-01T08:00:00.000Z',

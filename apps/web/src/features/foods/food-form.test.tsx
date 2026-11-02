@@ -28,6 +28,7 @@ const banana: Food = {
   ],
   source: 'manual',
   offCode: null,
+  estimatedAt: null,
   staleSince: null,
   archivedAt: null,
   createdAt: '2025-10-01T08:00:00.000Z',

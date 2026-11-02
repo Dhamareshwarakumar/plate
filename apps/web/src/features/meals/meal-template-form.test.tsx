@@ -25,6 +25,7 @@ const oats: Food = {
   portions: [{ id: 1, label: '1 bowl', amount: 80, sortOrder: 0 }],
   source: 'manual',
   offCode: null,
+  estimatedAt: null,
   staleSince: null,
   archivedAt: null,
   createdAt: '2025-10-01T08:00:00.000Z',

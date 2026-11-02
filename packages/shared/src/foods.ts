@@ -18,7 +18,11 @@ export type FoodBasis = z.infer<typeof foodBasisSchema>;
 export const foodKindSchema = z.enum(['food', 'dish']);
 export type FoodKind = z.infer<typeof foodKindSchema>;
 
-export const foodSourceSchema = z.enum(['manual', 'off', 'dish']);
+/**
+ * Where a food's nutrition came from: typed by hand, an Open Food Facts lookup, computed from a
+ * dish's ingredients, or estimated by the AI assistant (Phase 11; such foods also carry `estimatedAt`).
+ */
+export const foodSourceSchema = z.enum(['manual', 'off', 'dish', 'ai']);
 export type FoodSource = z.infer<typeof foodSourceSchema>;
 
 // ---------- categories ----------
@@ -100,6 +104,11 @@ export const foodSchema = z.object({
   portions: z.array(portionSchema),
   source: foodSourceSchema,
   offCode: z.string().nullable(),
+  /**
+   * Set when the nutrition came from the AI estimate (`source = 'ai'`) and cleared when the user
+   * saves edited nutrition; the library shows such foods with an "Estimated" tag (Phase 11).
+   */
+  estimatedAt: isoDateTimeSchema.nullable(),
   /** Dishes only: set when an ingredient changed after the last calculation (FR-R2). Null for foods. */
   staleSince: isoDateTimeSchema.nullable(),
   archivedAt: isoDateTimeSchema.nullable(),

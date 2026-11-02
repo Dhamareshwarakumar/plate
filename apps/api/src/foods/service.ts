@@ -45,6 +45,8 @@ export function toFood(row: FoodRow, portionRows: PortionRow[]): Food {
     portions: portionRows.sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id).map(toPortion),
     source: row.source,
     offCode: row.offCode,
+    // Always null until migration 0007 adds `foods.estimated_at` (Phase 11, API stage).
+    estimatedAt: null,
     staleSince: row.staleSince,
     archivedAt: row.archivedAt,
     createdAt: row.createdAt,

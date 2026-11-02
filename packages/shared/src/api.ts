@@ -12,6 +12,8 @@ export const apiErrorCodeSchema = z.enum([
   'INTERNAL_ERROR',
   /** A third-party service the server proxied to (Open Food Facts) failed or timed out. */
   'UPSTREAM_ERROR',
+  /** The configured AI provider failed, timed out or answered unusably (Phase 11); 502. */
+  'AI_UNAVAILABLE',
 ]);
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 
