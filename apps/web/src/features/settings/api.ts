@@ -1,7 +1,11 @@
 import {
+  aboutResponseSchema,
   DEFAULT_SETTINGS,
   profileSchema,
+  RESTORE_CONFIRMATION,
+  restoreResultSchema,
   settingsSchema,
+  type Backup,
   type Profile,
   type Settings,
   type SettingsPatch,
@@ -17,6 +21,20 @@ export const settingsKeys = {
 export const profileKeys = {
   all: ['profile'] as const,
 };
+export const aboutKeys = {
+  all: ['about'] as const,
+};
+
+/**
+ * File downloads go through top-level navigation (the browser handles the attachment and the
+ * cookie goes along), the same way the Foods page exports its CSV.
+ */
+export const DOWNLOADS = {
+  backupJson: '/api/backup.json',
+  backupSqlite: '/api/backup.sqlite',
+  foodsCsv: '/api/foods/export.csv',
+  diaryCsv: (from: string, to: string) => `/api/diary/export.csv?from=${from}&to=${to}`,
+} as const;
 
 export function useSettings() {
   return useQuery({
@@ -75,5 +93,31 @@ export function useSaveProfile() {
     mutationFn: (input: Profile) =>
       apiRequest('/profile', { method: 'PUT', body: input, schema: profileSchema }),
     onSuccess: (profile) => queryClient.setQueryData(profileKeys.all, profile),
+  });
+}
+
+/** More → About and the import sheet's "On this server" column. */
+export function useAbout() {
+  return useQuery({
+    queryKey: aboutKeys.all,
+    queryFn: ({ signal }) => apiRequest('/about', { schema: aboutResponseSchema, signal }),
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * Replaces everything on the server with the given backup. On success every query is invalidated
+ * (no filter): there is nothing in the cache that could still be right.
+ */
+export function useRestoreBackup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (backup: Backup) =>
+      apiRequest('/backup/restore', {
+        method: 'POST',
+        body: { confirm: RESTORE_CONFIRMATION, backup },
+        schema: restoreResultSchema,
+      }),
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 }

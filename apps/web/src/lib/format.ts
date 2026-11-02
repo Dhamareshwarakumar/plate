@@ -39,3 +39,16 @@ export function formatSignedKg(delta: number): string {
   if (rounded === 0) return formatKg(0);
   return `${rounded > 0 ? '+' : '\u2212'}${formatKg(Math.abs(rounded))}`;
 }
+
+/** "812 B", "512 kB", "1.4 MB" (decimal units, one decimal from MB up, none below). */
+export function formatBytes(bytes: number): string {
+  const units = ['B', 'kB', 'MB', 'GB'] as const;
+  let value = Math.max(0, bytes);
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+  const digits = unit >= 2 ? 1 : 0;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: digits })} ${units[unit]}`;
+}
