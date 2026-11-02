@@ -56,6 +56,34 @@ WebAssembly decoder from your Plate server the first time. The camera needs HTTP
 which the deployment already has; if you denied the permission the sheet explains where to turn it
 back on for your browser.
 
+### Reminders
+
+**More → Reminders** nudges you when a meal is still unlogged at the end of its window, to weigh in
+(07:30 by default), and optionally to drink up when you are below the water goal. Turn the master
+switch on, set the times (they follow the phone's time zone; the footer says which), then **Enable on
+this device** on every phone or computer that should get them. The browser asks for notification
+permission once; after that **Send test notification** shows what a reminder looks like, and
+**Turn off on this device** (or the bin icon next to a device) stops them there.
+
+- **iPhone and iPad:** notifications only reach Plate when it is installed to the Home Screen
+  (Safari → Share → **Add to Home Screen**, iOS 16.4 or newer). Open Plate from that icon, then
+  enable reminders. In a Safari tab the page tells you the same.
+- **Android (Chrome, Edge, Samsung Internet, Firefox) and desktop browsers** work from the installed
+  app or a normal tab.
+- The server checks every minute; a reminder goes out once per day, only if its condition still
+  holds (nothing logged in that meal, no weigh-in today, below the water goal). Nothing is sent while
+  the master switch is off or no device is enabled.
+
+**What leaves the Pi.** Delivery uses your browser's push service (Google for Chrome and friends,
+Mozilla for Firefox, Apple for Safari); that is the only way to reach a closed app. For each
+reminder the Pi makes one HTTPS request to the endpoint your browser handed over when you enabled
+reminders, carrying a short message encrypted to that device (the push service cannot read it) and a
+signed token identifying this server. The message is generic ("Dinner not logged yet", "Time to
+weigh in", "Below your water goal"); your foods, amounts, weights and goals never leave the Pi.
+Together with the Open Food Facts lookup this is the only outbound traffic the app makes.
+`PUSH_VAPID_SUBJECT` (optional, `mailto:` or `https:`) is the contact the token names; the default
+`mailto:plate@localhost` works, push services do not write to it.
+
 ### Behind Nginx Proxy Manager (or another proxy container)
 
 The proxy container cannot reach a port bound to the Pi's `127.0.0.1`, so instead of publishing a

@@ -239,6 +239,10 @@ Desktop: a 2-column card grid; charts get hover tooltips with exact values; clic
 A list of sections:
 
 - **Goal** — card with the active goal (kcal; P/C/F in g and %; fiber; water; "since 1 Oct"). "Edit goal" opens the goal editor: fields plus an effective-from date (default today); a "Calculate for me" expander shows the Mifflin-St Jeor estimate with activity level and the four suggestions as tappable chips, and macro presets (Balanced 30/40/30, High protein 40/30/30, Custom) that fill the gram fields from the chosen kcal. "Goal history" lists past goals.
+- **Reminders** (FR-N) — a one-row link card ("Off" / "On · 2 devices") that opens **More → Reminders**, two cards (side by side on desktop):
+  - _Schedule_: master switch with a status line; **Meals**: one row per active meal slot with a switch, the slot name, a time field (default: the slot's window end) and a checkbox "Only if nothing is logged in this meal"; **Body and water**: Weigh-in (default 07:30, "only when no weight is logged for the day") and Water ("only when you are below the water goal"); footer "Times are in <zone>" with a one-tap switch to the device's zone when it differs. Every change saves at once.
+  - _Devices_: this browser's state with one action — **Enable on this device** (asks permission, subscribes), or **Send test notification** · **Turn off on this device** once enabled — and clear copy for the dead ends: notifications blocked (where to re-allow, Check again), iPhone/iPad in a Safari tab ("Add Plate to your Home Screen first": Share → Add to Home Screen), browser without push, no secure connection, service worker not running. Below it the list of enabled devices ("Chrome on Android", "This device" tag, added date, last delivery or failed-delivery count, remove with confirmation).
+  - Notifications themselves are generic ("Dinner not logged yet", "Time to weigh in", "Below your water goal"); tapping one opens Today (or Weight for the weigh-in).
 - **Adherence tolerance** — slider 0–25 %, default 10 %.
 - **Meal slots** — reorderable list; each row: name, window (e.g. 05:00–10:30); add / rename / archive.
 - **Categories** — same pattern.

@@ -89,7 +89,8 @@ sizes sm/md/lg/icon/icon-sm, `loading`), `Input`, `PasswordInput`, `NumberField`
 `Card`/`CardTitle`/`CardDescription`, `Sheet` (bottom sheet on phones, dialog on ≥sm; `title`,
 `description`, `footer`, `locked`), `ConfirmDialog`, `Menu`/`MenuItem`/`MenuSeparator`, `Skeleton`,
 `Spinner`, `EmptyState`, `ErrorState`, `Ring` (SVG progress ring, `status` colours, `role="progressbar"`),
-`Bar` (slim macro bar with hatched overflow), `Slider` (Radix, single value, `onValueCommit`), `Kbd`,
+`Bar` (slim macro bar with hatched overflow), `Slider` (Radix, single value, `onValueCommit`),
+`Switch` (Radix on/off toggle; 28 px tall, put it in a ≥ 44 px row), `Kbd`,
 `focus.ts` (`rememberOpener`/`restoreFocus`: sheets and dialogs return focus to the opener or `#main`).
 Also `PageHeader`, `ShellSkeleton`/`PageSkeleton`, `BrandMark`. Add new primitives there when a pattern
 repeats; keep them accessible (Radix underneath, keyboard operable, aria labels).

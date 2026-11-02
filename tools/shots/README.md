@@ -132,3 +132,18 @@ macOS reports `zxing`), the saved food's `basis`/`source`/`offCode`, the editor 
 manually" and each failure state's text. It creates "Twix glacé" through "Add to library and log" and
 deletes it at the end (nothing is logged, so the delete succeeds). The two `Failed to load resource:
 ... 404` console lines are the mocked unknown-barcode lookups and are expected.
+
+```sh
+node tools/shots/phase10-reminders.mjs    # reminders: More row (phone + desktop), schedule card off / on / edited (switches, time fields, "only if empty"), enabled device + test-notification toast, remove-device confirm, time-zone footer with "Use <zone>", device states (denied, iPhone not installed, unsupported browser, insecure context, no service worker), loading and error states (two Try again buttons), desktop two-column layout; PNGs 140–156
+```
+
+`phase10-reminders.mjs` fakes only the browser side of push (`navigator.serviceWorker.ready`,
+`pushManager`, `Notification`, via an init script; the subscription is remembered in `localStorage`
+so reloads behave like a real browser) and one successful `/api/push/test` response. Everything else
+is real: the device it enrols is a row on the dev API (endpoint under `https://push.example/…`), the
+schedule edits are saved and read back (logged as `saved config`), a second device is added and
+removed through the confirm dialog, the zone is switched and the device turned off again. The real
+test send runs once too; web-push rejects the fake key, so it logs the `failed: 1` error toast. The
+script resets the reminder settings and deletes its devices at the end, and waits 60 s before the
+desktop shots to stay under the API's 300 req/min limit. Only `Failed to load resource` lines from the
+loading/error mocks are expected in the console output.

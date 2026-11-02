@@ -94,6 +94,12 @@ For a selectable range (week, month, 3 months, year, custom) with previous/next 
 
 - **FR-O1** On an empty database the Today screen shows a three-step checklist: set a goal, add foods, log a meal. It disappears once all three are done (or is dismissed).
 
+### 3.10 Reminders (FR-N, added in Phase 10 after deployment)
+
+- **FR-N1** Reminders are configured under More → Reminders: a master switch; per active meal slot a time (default: the slot's window end) and "only if nothing is logged in this meal"; a weigh-in reminder time (default 07:30, only if no weight is logged that day); an optional water nudge at a time, only if below the water goal. No quiet hours in v1.
+- **FR-N2** Devices opt in individually ("Enable on this device": notification permission, push subscription, listed as e.g. "Chrome on Android" with a remove button), with a "Send test notification" action. iPhone/iPad need the app installed to the Home Screen; the page says so.
+- **FR-N3** Delivery uses the browser's Web Push service (the only way to notify a closed PWA). Payloads are generic ("Dinner not logged yet", "Time to weigh in") and carry no nutrition data. This is a documented exception to NFR-7 alongside Open Food Facts (TECH.md §7, README).
+
 ## 4. Non-functional requirements
 
 - **NFR-1 Speed.** Day view renders in under 300 ms on the Pi over LAN after first load; food search filters as you type with no visible lag for a library of several thousand foods.
@@ -102,7 +108,7 @@ For a selectable range (week, month, 3 months, year, custom) with previous/next 
 - **NFR-4 PWA.** Installable to the home screen with icon, splash and standalone display; app shell cached for instant startup. (Requires HTTPS; see TECH.md §7.3.)
 - **NFR-5 Accessibility.** Keyboard navigable, visible focus, ARIA on rings and charts, WCAG AA contrast, respects reduced-motion.
 - **NFR-6 Data safety.** No destructive action without confirmation; deletes have undo where cheap; restore requires typed confirmation; SQLite in WAL mode; backup export always available.
-- **NFR-7 Privacy / locality.** No analytics, no fonts or scripts from third parties. The only outbound call is the optional Open Food Facts lookup, made from the server, disable-able.
+- **NFR-7 Privacy / locality.** No analytics, no fonts or scripts from third parties. The only outbound calls are the optional Open Food Facts lookup (made from the server, disable-able) and, once reminders are switched on and a device has enrolled, the encrypted Web Push messages of FR-N3.
 - **NFR-8 Security.** See TECH.md §7: authenticated API, hashed password compare, HttpOnly SameSite cookies, security headers, input validation on every endpoint, parameterized queries, non-root container, no secrets in the repo.
 - **NFR-9 Deployability.** `docker compose up -d` on the Pi with a `.env` file is the whole install. Multi-arch image (arm64 + amd64). Data in one bind-mounted directory.
 - **NFR-10 Maintainability.** TypeScript end to end, shared schemas between API and UI, unit tests for all nutrition math, integration tests for the API.
@@ -111,9 +117,9 @@ For a selectable range (week, month, 3 months, year, custom) with previous/next 
 
 - Multi-user, sharing, social features.
 - Offline write queue / sync.
-- Push notifications or reminders.
-- Barcode scanning via camera (barcode text lookup is in via FR-F5).
 - Imperial units.
 - Micronutrients beyond the eight fields in FR-F1.
 - Exercise / activity logging.
 - Native apps.
+
+Phase 10 (after the first deployment) brought in two items that were out of scope for v1: camera barcode scanning (extends FR-F5) and reminders via Web Push (FR-N).
