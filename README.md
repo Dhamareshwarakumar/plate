@@ -80,9 +80,113 @@ reminder the Pi makes one HTTPS request to the endpoint your browser handed over
 reminders, carrying a short message encrypted to that device (the push service cannot read it) and a
 signed token identifying this server. The message is generic ("Dinner not logged yet", "Time to
 weigh in", "Below your water goal"); your foods, amounts, weights and goals never leave the Pi.
-Together with the Open Food Facts lookup this is the only outbound traffic the app makes.
-`PUSH_VAPID_SUBJECT` (optional, `mailto:` or `https:`) is the contact the token names; the default
-`mailto:plate@localhost` works, push services do not write to it.
+Together with the Open Food Facts lookup and the opt-in AI assistance below, this is the only
+outbound traffic the app makes. `PUSH_VAPID_SUBJECT` (optional, `mailto:` or `https:`) is the
+contact the token names; the default `mailto:plate@localhost` works, push services do not write to it.
+
+### AI assistance (optional)
+
+Off by default: without an API key no AI button exists anywhere in the app. With one, Plate gains
+three **confirm-first** helpers and a weekly digest. The model proposes, you edit and confirm, and
+only then is anything saved.
+
+- **Describe or photograph a meal.** In the log sheet (**+**) tap the sparkles button next to the
+  barcode button, then type ("2 rotis, a bowl of dal, one banana"), dictate, or take a photo.
+  **Analyse** returns a review list: each line is matched to a food in your library or proposed as a
+  new estimated food, with an editable quantity and a confidence pill. Remove what is wrong, fix the
+  amounts, **Log N items**. New foods are created tagged "Estimated".
+- **Estimate with AI.** In the food editor, next to **Search online**: type a name (and optionally a
+  brand or a hint like "restaurant style"), and the model fills nutrition per 100 g/ml plus typical
+  portions. The food carries an "Estimated by AI; verify against a label when you can" notice until
+  you edit its nutrition.
+- **Paste a recipe.** In the dish editor: paste a recipe text, and the model returns a dish name,
+  the ingredients matched to your library or proposed as new foods, the cooked weight and the number
+  of servings, prefilled in the editor for you to check and save.
+- **Weekly digest.** In Insights, with the **Week** range: **Generate** turns the week's numbers into
+  three to five plain sentences and one suggestion for next week. The result is kept per week;
+  **Regenerate** asks again.
+
+**Get a key.** Open [Google AI Studio](https://aistudio.google.com/apikey), sign in with a Google
+account and choose **Create API key**. The key is a long string; keep it like a password. The
+[free tier](https://ai.google.dev/gemini-api/docs/pricing) covers light personal use (a small daily
+request quota per model); enable billing on the key's Google Cloud project if you hit it.
+
+**Turn it on.** Add to `.env` (the one next to `docker-compose.yml`), then `docker compose up -d`:
+
+```ini
+AI_PROVIDER=gemini
+AI_API_KEY=<your key>
+# AI_MODEL=gemini-3.8-flash   # optional; this is the default
+```
+
+**More → AI assistant** then shows the provider and model, the requests made today and over the
+last 30 days, and the sparkles buttons appear. All variables:
+
+| Variable             | Default                         | Meaning                                                                                                                                                                                                                                                                            |
+| -------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_PROVIDER`        | `none`                          | `none` (off), `gemini`, or `openai_compatible`. The server refuses to start if the chosen provider lacks the variables it needs.                                                                                                                                                   |
+| `AI_API_KEY`         | —                               | Required for `gemini` and `openai_compatible`. Stays on the server: never sent to the browser, never written to logs.                                                                                                                                                              |
+| `AI_MODEL`           | `gemini-3.8-flash` for `gemini` | Model id. Required for `openai_compatible`. Any [Gemini model](https://ai.google.dev/gemini-api/docs/models) id works; a vision model is needed for photos. `gemini-3.5-flash-lite` is the lighter fallback that kept answering while Flash reported "high demand" during testing. |
+| `AI_BASE_URL`        | Gemini's own endpoint           | Required for `openai_compatible` (see below). For `gemini`, only to route through a Gemini-compatible proxy.                                                                                                                                                                       |
+| `AI_TIMEOUT_MS`      | `60000`                         | How long to wait for an answer (1 000–300 000). A slow answer becomes "The AI provider did not respond within 60 s". Behind a reverse proxy keep it at or below the proxy's read timeout (nginx and Nginx Proxy Manager default to 60 s), or raise that too.                       |
+| `AI_MAX_IMAGE_BYTES` | `4194304` (4 MB)                | Largest photo accepted. Phones resize photos to 1280 px JPEG before upload, so a photo is usually 200–500 kB.                                                                                                                                                                      |
+
+**Using Qwen, Kimi or another OpenAI-compatible API instead.** Any service that speaks the OpenAI
+`chat/completions` protocol works. Set the base URL and a model id from the provider's model list:
+
+```ini
+AI_PROVIDER=openai_compatible
+AI_API_KEY=<your key>
+AI_BASE_URL=https://openrouter.ai/api/v1
+AI_MODEL=google/gemini-3.8-flash    # whatever the provider calls the model
+```
+
+| Provider                                                                              | `AI_BASE_URL`                                            | Notes                                                                                                                              |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| [OpenRouter](https://openrouter.ai/docs/quick-start)                                  | `https://openrouter.ai/api/v1`                           | One key, hundreds of models (Gemini, Qwen, Kimi, GPT…). Model ids look like `google/gemini-3.8-flash`.                             |
+| [Alibaba Cloud Model Studio](https://help.aliyun.com/en/model-studio/base-url) (Qwen) | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | Singapore endpoint; the page lists the Beijing, US and Hong Kong ones. `qwen3.5-plus` is multimodal; check the current model list. |
+| [Moonshot](https://platform.kimi.ai/docs/guide/migrating-from-openai-to-kimi) (Kimi)  | `https://api.moonshot.ai/v1`                             | `kimi-k3` understands images; the [model list](https://platform.kimi.ai/docs/api/list-models) has the current ids.                 |
+
+Plate asks these servers for schema-constrained JSON (`response_format: json_schema`) and falls back
+to plain JSON mode when a server rejects that, so most gateways work unchanged. Text-only models
+still handle descriptions, estimates, recipes and the digest; only photos need a vision model.
+
+**What it costs.** Plate makes one request per tap, never in the background. Gemini 3.8 Flash on the
+paid tier is listed at $0.75 per million input tokens and $3.75 per million output tokens
+([pricing](https://ai.google.dev/gemini-api/docs/pricing); introductory rate until 31 December 2026,
+after which Google has announced $1.50 / $7.50). A meal description costs roughly 2–5 k input tokens
+(the prompt plus the index of your library) and about 500–1 500 output tokens including the model's
+reasoning: ≈ $0.003–0.01. A photo adds about 1–2 k input tokens (≈ +$0.001). At ten requests a day,
+300 a month, that is about $1–3 per month at the introductory price, $2–6 after it; the free tier
+costs nothing within its quota. The usage counter in **More → AI assistant** shows how many requests
+you actually make; the request log in the server output includes the token counts.
+
+**Exactly what is sent, and when.** Nothing leaves the Pi until you tap **Analyse**, **Estimate**,
+**Parse recipe** or **Generate**; the sheets say which provider and model they talk to.
+
+- Meal parsing sends your text and/or the photo (resized in the browser to at most 1280 px), the
+  meal slot's name and the day, and a compact index of your library: for each active food and dish
+  its id, name, brand, g/ml basis and kcal per 100 (up to 1 500 rows; beyond that the 300 most
+  recently logged plus rows matching words of your text). So the **names of your foods** reach the
+  provider with every parse.
+- The estimate sends the name, brand and hint you typed. The recipe import sends the pasted text and
+  the same food index.
+- The weekly digest sends only the numbers Insights already shows for that week: days logged,
+  adherence, average kcal and macros, one line per logged day (kcal, protein, carbs, fat, goal,
+  status), which weekdays were not logged, average kcal per meal slot, your five most-logged food
+  names and the logging streak.
+- Never sent: your password, diary entries, notes, weights, goals history, profile, or anything
+  from other weeks. The provider's own data-retention terms apply to what is sent; Google's are
+  [here](https://ai.google.dev/gemini-api/terms).
+- Plate validates every answer against a strict schema, asks once more when it is unusable, and
+  rejects the rest with a readable error. All AI routes share a limit of 30 requests per minute.
+
+**Turn it off.** Remove `AI_PROVIDER` from `.env` (or set it to `none`) and `docker compose up -d`.
+Every AI button disappears; foods and digests created with it stay.
+
+`AI_PROVIDER=fake` is a **development-only** driver: canned answers, no key, no network. The
+screenshot scripts and automated tests use it. Do not use it on the Pi: it "estimates" every food as
+the same sambar.
 
 ### Behind Nginx Proxy Manager (or another proxy container)
 
@@ -200,6 +304,11 @@ existing builds; extra arguments go to Playwright (`pnpm e2e -- --grep import`).
 
 `tools/shots/*.mjs` are the visual verification scripts (one per phase); see
 [tools/shots/README.md](tools/shots/README.md).
+
+AI features in development: set `AI_PROVIDER=fake` in `apps/api/.env` for canned answers without a
+key or network access (`tools/shots/phase11-ai.mjs` and the e2e suite start their own API instance
+that way). To exercise a real provider, put `AI_PROVIDER=gemini` and `AI_API_KEY` in that same
+git-ignored file; the dev server reads it, nothing else does.
 
 Layout: `apps/api` (Fastify + SQLite), `apps/web` (React PWA; `apps/web/e2e` holds the Playwright tests), `packages/shared` (zod schemas and pure calculations shared by both).
 

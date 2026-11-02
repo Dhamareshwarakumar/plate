@@ -91,7 +91,7 @@ Opened by the **+** FAB, any "Add to <meal>" button, or `N` on desktop. Phone: a
 ┌──────────────────────────────────┐
 │ ━━━                              │
 │ Log to  [Breakfast ▾]  Sat 19 Oct│  ← slot preselected from the time window; tap to change
-│ 🔍 Search foods…            [▯▯▯] │  ← autofocused, numeric-free keyboard; ▯▯▯ scans a barcode (Phase 10b)
+│ 🔍 Search foods…         [▯▯▯][✦] │  ← autofocused, numeric-free keyboard; ▯▯▯ scans a barcode (Phase 10b), ✦ describes or photographs a meal (Phase 11, only with AI configured)
 │ [Recent] [Frequent] [Dishes] [Meals] [All] │
 │                                  │
 │  Oats              389 kcal/100g │  ← each row: name · kcal/100 · tiny P/C/F
@@ -115,6 +115,13 @@ Opened by the **+** FAB, any "Add to <meal>" button, or `N` on desktop. Phone: a
 - Library food with that barcode → straight to Step 2 for it.
 - Otherwise a **Barcode <code>** step: the Open Food Facts product (name, brand · size, kcal/P/C/F per 100) with **Add to library and log** (creates the food with the barcode, then Step 2) and **Create food manually**; "Not on Open Food Facts" when there is none, with Create food manually (the editor opens with the barcode already kept); when the online lookup is turned off on the server the step says so and still offers the manual path.
 - Camera problems have their own screens: starting (spinner, "choose Allow"), denied (how to re-enable, per browser, with Try again), no camera, camera busy, unsupported browser or plain-http page. Each points at typing the barcode into Search online instead.
+
+**Describe or photograph** (Phase 11, FR-AI1; only when the server reports AI assistance enabled): a sparkles (✦) button right of ▯▯▯ opens a nested sheet.
+
+- _Compose_: a text area ("2 rotis, a bowl of dal, one banana"), a **Dictate** button where the browser offers speech recognition (one utterance per tap, appended to the text; "Listening… tap to stop" while active), an **Add photo** button (camera on phones; the photo is shrunk to ≤ 1280 px in the browser and shown as a thumbnail with a remove ×), a one-line "Sent to <provider> (<model>) for analysis." footer, and **Analyse**.
+- _Analysing_: skeleton rows with "Analysing… 4 s · Usually takes 5–15 seconds".
+- _Review items_: one row per item: the model's description, then either the matched library food with a **Library** tag, the proposed food with an **Estimated, new food** tag, or **Needs a food** with a "Pick a food" button (opens the ordinary food picker); a quantity field with the basis suffix and the row's kcal under it; a confidence pill (low / medium / high); a remove button. The model's notes and a live totals line sit below; **Edit description** goes back, **Log N items** creates the proposed foods (tagged Estimated), logs every row into the chosen slot, then closes with the check animation.
+- _Empty_ ("Nothing recognised: the model found no food in the description or photo") and _error_ ("Could not analyse the meal" with the provider's message and Try again) states; a failure while logging keeps the sheet open and names the row that failed.
 
 ### Step 2 — quantity
 
@@ -170,9 +177,13 @@ The **Search online** button (FR-F5) opens a sub-sheet: type a name or barcode �
 
 The sub-sheet's footer has **Scan barcode** (Phase 10b): a camera sheet (see §3, "Scan barcode") reads the package's EAN/UPC and runs the same product lookup. When Open Food Facts has no product for a typed or scanned barcode, the sheet offers **Keep barcode on this food**, so a local product typed in by hand can still be logged by scanning later. The editor then shows "Barcode <code> · scanning it logs this food" under the Nutrition heading.
 
+**Estimate with AI** (Phase 11, FR-AI2) sits next to Search online and is enabled once a name is typed. Its sheet takes an optional hint ("restaurant style", "with skin"), shows "Sent to <provider> (<model>).", and after **Estimate** presents the per-100 values, the proposed portions and a confidence tag with the model's one-line rationale, then **Use these values** / **Change hint**. Applying fills nutrition, basis and portions (name, brand, category and barcode stay) and shows the notice "Estimated by AI; verify against a label when you can" under the Nutrition heading for as long as the eight nutrition fields still hold the estimate; editing any of them drops the notice and saves the food as manual. Library rows show an accent **Estimated** tag for such foods. Hidden when AI assistance is not configured.
+
 ### 4.3 Dish editor (FR-R1, FR-R2)
 
 Name · category · ingredients list (each: food picker + grams, with the per-ingredient kcal) · "Raw total 1,240 g" · "Cooked weight [ 980 ] g" · optional "Servings [ 4 ]" which creates a portion "1 serving = 245 g" · live computed card: "per 100 g: 142 kcal · P 7.1 · C 20 · F 3.2" · Save. A banner "Ingredients changed since last calculation — Recalculate" appears when relevant.
+
+**Paste a recipe** (Phase 11, FR-AI3), next to "Add ingredient" when AI assistance is enabled: a sheet with a large text area for the recipe (≤ 8 000 characters, "amounts in any unit"), a "Sent to <provider> (<model>)." footer and **Parse recipe**; while waiting, "Reading the recipe… 4 s · Usually takes 5–15 seconds" over skeleton rows. The result shows the dish name, one line per ingredient (the model's description, the amount in g/ml and a **Library** / **New food** / **Needs a food** tag), the cooked weight ("Not given — weigh the pot" when absent) and the servings, with the note that new foods are added to the library marked "Estimated" when the dish is saved; **Edit text** goes back, **Use recipe** prefills the editor. There, proposed foods carry a **New food** tag in their ingredient row and are created only when the dish is saved; a "Needs a food" line fails validation with "Pick a food" until the picker resolves it. Errors show "Could not read the recipe" with the provider's message and Try again.
 
 ### 4.4 Meal template editor (FR-R3)
 
@@ -213,6 +224,8 @@ Name · items (food/dish picker + grams) · total preview · Save · "Log now" b
 
 Desktop: a 2-column card grid; charts get hover tooltips with exact values; clicking a day bar or heatmap cell navigates to that day in Today.
 
+**Weekly digest** (Phase 11, FR-AI4): with the **Week** range and AI assistance enabled, a "Weekly digest" card leads the grid (not shown for a week with nothing logged). Before the first run it says what will be sent ("this week's totals, per-day numbers and top foods to <provider> (<model>)") next to **Generate**; while running, "Writing the digest… 4 s · Usually takes 5–15 seconds"; afterwards the three to five lines as a bulleted list, the suggestion in an accent box prefixed **Next week:**, a small "Generated 2 hours ago · <model>" line and a ghost **Regenerate**. The result is cached per week on the server, so stepping back to a week shows its digest at once; errors show "Could not write the digest" with the provider's message and Try again.
+
 ## 6. Weight — FR-W
 
 ```
@@ -243,6 +256,7 @@ A list of sections:
   - _Schedule_: master switch with a status line; **Meals**: one row per active meal slot with a switch, the slot name, a time field (default: the slot's window end) and a checkbox "Only if nothing is logged in this meal"; **Body and water**: Weigh-in (default 07:30, "only when no weight is logged for the day") and Water ("only when you are below the water goal"); footer "Times are in <zone>" with a one-tap switch to the device's zone when it differs. Every change saves at once.
   - _Devices_: this browser's state with one action — **Enable on this device** (asks permission, subscribes), or **Send test notification** · **Turn off on this device** once enabled — and clear copy for the dead ends: notifications blocked (where to re-allow, Check again), iPhone/iPad in a Safari tab ("Add Plate to your Home Screen first": Share → Add to Home Screen), browser without push, no secure connection, service worker not running. Below it the list of enabled devices ("Chrome on Android", "This device" tag, added date, last delivery or failed-delivery count, remove with confirmation).
   - Notifications themselves are generic ("Dinner not logged yet", "Time to weigh in", "Below your water goal"); tapping one opens Today (or Weight for the weigh-in).
+- **AI assistant** (FR-AI, Phase 11) — a card right under Reminders, spanning both desktop columns. Enabled: the provider and model ("Google Gemini · gemini-3.8-flash"), two stats (**Requests today**, **Last 30 days**) and a plain paragraph on what is sent (what you type or photograph, the list of your library's food names, for the digest the week's numbers and top foods) and that nothing is saved until confirmed. Disabled: "Off", a sentence on what the features do, and how to turn them on (`AI_PROVIDER` and `AI_API_KEY` in `.env`, restart) with a link to the README section. It is the only AI surface that renders while the feature is off.
 - **Adherence tolerance** — slider 0–25 %, default 10 %.
 - **Meal slots** — reorderable list; each row: name, window (e.g. 05:00–10:30); add / rename / archive.
 - **Categories** — same pattern.

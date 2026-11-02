@@ -35,6 +35,7 @@ apps/api/src          config.ts, app.ts (plugin/route registration), server.ts, 
   db/schema.ts        drizzle tables         db/index.ts  openDb() + migrations
   <domain>/service.ts business logic (class with a Db)   routes/<domain>.ts  Fastify routes (zod-typed)
   auth/               password, sessions, throttle, plugin (requireSession)
+  ai/                 providers/ (types, gemini, openai-compatible, fake, index), json-schema.ts (zod → provider schema), service.ts (AiService)
 apps/api/test         *.test.ts using test/helpers.ts (createTestApp, login)
 apps/web/src
   app/                router.tsx (React.lazy pages via lazy.ts), App.tsx, layout/ (AppShell: tab bar + sidebar, RootLayout, ShortcutsHelp), providers
@@ -116,8 +117,12 @@ option objects conditionally or use `NonNullable<...>`. `no-unnecessary-type-ass
 **Security (do not weaken).** All data routes behind `requireSession`; API binds `127.0.0.1` outside
 Docker; compose publishes `127.0.0.1` by default; no secrets in the repo; cookies stay
 HttpOnly/SameSite=Strict; CSP stays strict (no inline scripts: anything that must run before React goes
-in `apps/web/public/*.js`, like `theme-init.js`); the only outbound call is the optional Open Food Facts
-proxy (Phase 8) behind `OFF_LOOKUP_ENABLED`.
+in `apps/web/public/*.js`, like `theme-init.js`); the only outbound calls are the three gated ones: the
+optional Open Food Facts proxy (Phase 8) behind `OFF_LOOKUP_ENABLED`, Web Push reminders (Phase 10c) once
+a device has enrolled, and the AI provider (Phase 11) behind `AI_PROVIDER` + `AI_API_KEY`. The AI key is
+read from the environment only, sent in a request header, never put in a URL, a log line, a response or
+`GET about`; `AI_PROVIDER=fake` is dev/test only and never a default. `apps/api/.env` is git-ignored and
+may hold a real key: never print, copy or commit it.
 
 **Git.** Work on `main` in this checkout (no worktrees; phases are sequential). Before committing:
 `git status`, then `pnpm check` must exit 0. Conventional commits (`feat(api): …`, `feat(web): …`,
