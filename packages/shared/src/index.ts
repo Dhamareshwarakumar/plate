@@ -1,5 +1,6 @@
 export * from './api.js';
 export * from './auth.js';
+export * from './backup.js';
 export * from './days.js';
 export * from './diary.js';
 export * from './dishes.js';
