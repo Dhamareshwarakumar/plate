@@ -32,7 +32,8 @@ describe('ChartTable', () => {
   it('is visually hidden but present in the accessibility tree', () => {
     render(<ChartTable caption="Empty" columns={['Day']} rows={[]} />);
     const table = screen.getByRole('table', { name: 'Empty' });
-    expect(table).toHaveClass('sr-only');
+    // The hidden box wraps the table: a table itself never shrinks below its content width.
+    expect(table.parentElement).toHaveClass('sr-only');
     expect(table).not.toHaveAttribute('aria-hidden');
   });
 });
