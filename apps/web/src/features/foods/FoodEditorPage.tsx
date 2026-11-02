@@ -1,4 +1,4 @@
-import type { Food } from '@plate/shared';
+import { OFF_CODE_RE, type Food } from '@plate/shared';
 import { Archive, ArchiveRestore, ArrowLeft, Trash2, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
@@ -29,6 +29,10 @@ export function FoodEditorPage() {
   const isCreate = id === undefined;
   const [searchParams] = useSearchParams();
   const initialName = searchParams.get('name') ?? undefined;
+  // A scanned barcode the log flow could not resolve (digits only, like the API's offCodeSchema).
+  const offCodeParam = searchParams.get('offCode');
+  const initialOffCode =
+    offCodeParam !== null && OFF_CODE_RE.test(offCodeParam) ? offCodeParam : undefined;
   // Same-origin path only (`/today/2025-10-19`): after creating, go back there with the sheet open.
   const returnToRaw = searchParams.get('returnTo');
   const returnTo =
@@ -179,6 +183,7 @@ export function FoodEditorPage() {
           mode={isCreate ? 'create' : 'edit'}
           food={food.data}
           initialName={initialName}
+          initialOffCode={initialOffCode}
           categories={categories.data}
           onSubmit={onSubmit}
           formRef={captureForm}

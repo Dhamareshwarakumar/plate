@@ -257,3 +257,16 @@
 @utility animate-menu-in {
   animation: menu-in 140ms ease-out;
 }
+
+/* Barcode scanner viewfinder: the laser line sweeps the frame while the camera is looking. */
+@keyframes scan-line {
+  from {
+    transform: translateY(-50%);
+  }
+  to {
+    transform: translateY(50%);
+  }
+}
+@utility animate-scan-line {
+  animation: scan-line 1.6s ease-in-out infinite alternate;
+}

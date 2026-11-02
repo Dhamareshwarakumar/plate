@@ -1,6 +1,15 @@
 import { checkMacroSanity, type Category, type Food, type OffResult } from '@plate/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowDown, ArrowUp, ChevronDown, Globe, GripVertical, Plus, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Barcode,
+  ChevronDown,
+  Globe,
+  GripVertical,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { Reorder, useDragControls } from 'motion/react';
 import { useEffect, useState } from 'react';
 import {
@@ -33,6 +42,8 @@ export interface FoodFormProps {
   categories: readonly Category[];
   /** Pre-fills the name for "Create 'xyz'" from a search with no results. */
   initialName?: string | undefined;
+  /** A scanned barcode Open Food Facts did not know (log flow → "Create food manually"); kept on the food. */
+  initialOffCode?: string | undefined;
   onSubmit: (values: FoodFormValues, intent: 'save' | 'save-and-add') => Promise<void>;
   /** Called by the parent with the form instance so it can set server-side field errors. */
   formRef?: (form: UseFormReturn<FoodFormValues>) => void;
@@ -50,6 +61,7 @@ export function FoodForm({
   food,
   categories,
   initialName,
+  initialOffCode,
   onSubmit,
   formRef,
   submitting,
@@ -60,7 +72,9 @@ export function FoodForm({
 }: FoodFormProps) {
   const form = useForm<FoodFormValues>({
     resolver: zodResolver(foodFormSchema),
-    defaultValues: food ? fromFood(food) : { ...EMPTY_FOOD_FORM, name: initialName ?? '' },
+    defaultValues: food
+      ? fromFood(food)
+      : { ...EMPTY_FOOD_FORM, name: initialName ?? '', offCode: initialOffCode ?? '' },
     mode: 'onBlur',
   });
   useEffect(() => formRef?.(form), [form, formRef]);
@@ -96,6 +110,12 @@ export function FoodForm({
     const { fiber, sugar, saturatedFat, sodiumMg } = result.per100;
     if ([fiber, sugar, saturatedFat, sodiumMg].some((v) => v !== null)) setMoreOpen(true);
     toast.success(`Prefilled from ${result.name}`);
+  };
+
+  /** A barcode without an Open Food Facts product: remembered so a later scan finds this food. */
+  const keepOffCode = (code: string) => {
+    form.setValue('offCode', code, { shouldDirty: true });
+    toast.success(`Barcode ${code} kept on this food`);
   };
 
   const submit = (intent: 'save' | 'save-and-add') =>
@@ -207,8 +227,10 @@ export function FoodForm({
           </div>
           {offCode !== '' ? (
             <p className="text-fg-muted -mt-1 flex items-center gap-1.5 text-xs">
-              <Globe className="text-accent size-3.5 shrink-0" aria-hidden="true" />
-              Prefilled from Open Food Facts · barcode {offCode}
+              <Barcode className="text-accent size-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                Barcode <span className="tabular">{offCode}</span> · scanning it logs this food
+              </span>
             </p>
           ) : null}
           <div className="grid grid-cols-2 gap-4">
@@ -414,6 +436,7 @@ export function FoodForm({
           onOpenChange={setLookupOpen}
           initialQuery={form.getValues('name')}
           onPick={applyOffResult}
+          onKeepCode={keepOffCode}
         />
       ) : null}
     </>

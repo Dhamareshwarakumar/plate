@@ -328,11 +328,13 @@ function TodayView({ day }: { day: string }) {
         initialSlotId={slotParam ? Number(slotParam) : undefined}
         initialFoodId={logFoodId}
         initialTemplateId={logTemplateId}
-        onCreateFood={(name) =>
-          void navigate(
-            `/foods/new?name=${encodeURIComponent(name)}&returnTo=${encodeURIComponent(`/today/${day}`)}`,
-          )
-        }
+        onCreateFood={(name, offCode) => {
+          const params = new URLSearchParams();
+          if (name) params.set('name', name);
+          if (offCode) params.set('offCode', offCode);
+          params.set('returnTo', `/today/${day}`);
+          void navigate(`/foods/new?${params.toString()}`);
+        }}
       />
 
       <EntryEditSheet

@@ -1,11 +1,12 @@
-import { OFF_QUERY_MAX, roundNutrient, type OffResult } from '@plate/shared';
-import { Globe, Search, SearchX, X } from 'lucide-react';
+import { isOffBarcode, OFF_QUERY_MAX, roundNutrient, type OffResult } from '@plate/shared';
+import { Barcode, Globe, ScanBarcode, Search, SearchX, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/states';
+import { BarcodeScannerSheet } from '@/features/scan/BarcodeScannerSheet';
 import { useOffLookup } from './api';
 
 const MIN_QUERY = 2;
@@ -17,6 +18,11 @@ export interface OffLookupSheetProps {
   initialQuery?: string | undefined;
   /** Called with the chosen result; the sheet closes itself afterwards. */
   onPick: (result: OffResult) => void;
+  /**
+   * Offered when a barcode query (typed or scanned) has no product: keeps the code on the food so
+   * scanning it later finds the food in the library. The sheet closes itself afterwards.
+   */
+  onKeepCode?: ((code: string) => void) | undefined;
 }
 
 /** "Search online" (FR-F5, DESIGN §4.2): Open Food Facts search by name or barcode, through the API. */
@@ -31,18 +37,34 @@ export function OffLookupSheet(props: OffLookupSheetProps) {
   return <OffLookupSheetInner key={session} {...props} />;
 }
 
-function OffLookupSheetInner({ open, onOpenChange, initialQuery, onPick }: OffLookupSheetProps) {
+function OffLookupSheetInner({
+  open,
+  onOpenChange,
+  initialQuery,
+  onPick,
+  onKeepCode,
+}: OffLookupSheetProps) {
   const initial = initialQuery ?? '';
   const [query, setQuery] = useState(initial);
   // Explicit submit (Enter / Search): every lookup is a third-party call, so no search-as-you-type.
   const [submitted, setSubmitted] = useState(initial.trim().length >= MIN_QUERY ? initial : '');
+  const [scanOpen, setScanOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const lookup = useOffLookup(submitted);
   const canSearch = query.trim().length >= MIN_QUERY;
   const hasQuery = submitted.trim().length >= MIN_QUERY;
+  const submittedCode = submitted.trim();
+  const submittedIsBarcode = isOffBarcode(submittedCode);
 
   const runSearch = () => {
     if (canSearch) setSubmitted(query);
+  };
+
+  /** A scanned code is looked up like a typed one, through the product route. */
+  const onScanned = (code: string) => {
+    setScanOpen(false);
+    setQuery(code);
+    setSubmitted(code);
   };
 
   return (
@@ -101,24 +123,30 @@ function OffLookupSheetInner({ open, onOpenChange, initialQuery, onPick }: OffLo
         </div>
       }
       footer={
-        <p className="text-fg-faint mr-auto self-center text-xs">
-          Powered by{' '}
-          <a
-            href="https://world.openfoodfacts.org"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-fg-muted underline underline-offset-2"
-          >
-            Open Food Facts
-          </a>
-        </p>
+        <>
+          <p className="text-fg-faint mr-auto self-center text-xs">
+            Powered by{' '}
+            <a
+              href="https://world.openfoodfacts.org"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-fg-muted underline underline-offset-2"
+            >
+              Open Food Facts
+            </a>
+          </p>
+          <Button type="button" variant="outline" onClick={() => setScanOpen(true)}>
+            <ScanBarcode className="size-4" aria-hidden="true" />
+            Scan barcode
+          </Button>
+        </>
       }
     >
       {!hasQuery ? (
         <EmptyState
           icon={Globe}
           title="Search Open Food Facts"
-          description="Type a product name or the barcode from the package, then press Search."
+          description="Type a product name or the barcode from the package and press Search, or scan the barcode with the camera."
           className="py-10"
         />
       ) : lookup.isPending ? (
@@ -146,12 +174,35 @@ function OffLookupSheetInner({ open, onOpenChange, initialQuery, onPick }: OffLo
           className="py-10"
         />
       ) : lookup.data.length === 0 ? (
-        <EmptyState
-          icon={SearchX}
-          title="No products found"
-          description={`No results for “${submitted.trim()}”. Try fewer words, or the barcode from the package.`}
-          className="py-10"
-        />
+        submittedIsBarcode ? (
+          <EmptyState
+            icon={Barcode}
+            title="Not on Open Food Facts"
+            description={`No product has the barcode ${submittedCode}. Type the values from the label by hand${onKeepCode ? '; keeping the barcode on this food lets you log it by scanning next time' : ''}.`}
+            className="py-10"
+            action={
+              onKeepCode ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    onKeepCode(submittedCode);
+                    onOpenChange(false);
+                  }}
+                >
+                  Keep barcode on this food
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={SearchX}
+            title="No products found"
+            description={`No results for “${submitted.trim()}”. Try fewer words, or the barcode from the package.`}
+            className="py-10"
+          />
+        )
       ) : (
         <ul className="divide-border -mx-2 divide-y" aria-label="Results">
           {lookup.data.map((result) => {
@@ -182,6 +233,7 @@ function OffLookupSheetInner({ open, onOpenChange, initialQuery, onPick }: OffLo
           })}
         </ul>
       )}
+      <BarcodeScannerSheet open={scanOpen} onOpenChange={setScanOpen} onDetected={onScanned} />
     </Sheet>
   );
 }

@@ -51,7 +51,7 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json' },
   });
 
-function renderSheet(props: { initialQuery?: string } = {}) {
+function renderSheet(props: { initialQuery?: string; onKeepCode?: (code: string) => void } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onOpenChange = vi.fn();
   const onPick = vi.fn();
@@ -141,7 +141,7 @@ describe('OffLookupSheet', () => {
     expect(searchBox()).toHaveValue('Oatly');
   });
 
-  it('shows the empty state for no results and for an unknown barcode', async () => {
+  it('shows the empty state for no results and the barcode state for an unknown code', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) =>
@@ -150,7 +150,7 @@ describe('OffLookupSheet', () => {
           : json({ items: [] }),
       ),
     );
-    renderSheet();
+    const { onPick, onOpenChange } = renderSheet();
     const user = userEvent.setup();
 
     await user.type(searchBox(), 'zzzz{Enter}');
@@ -159,7 +159,42 @@ describe('OffLookupSheet', () => {
 
     await user.clear(searchBox());
     await user.type(searchBox(), '00000000{Enter}');
-    expect(await screen.findByText(/No results for “00000000”/)).toBeInTheDocument();
+    expect(await screen.findByText('Not on Open Food Facts')).toBeInTheDocument();
+    expect(screen.getByText(/No product has the barcode 00000000/)).toBeInTheDocument();
+    // Without an onKeepCode handler there is nothing to keep the code on.
+    expect(screen.queryByRole('button', { name: 'Keep barcode on this food' })).toBeNull();
+    expect(onPick).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('offers to keep an unknown barcode on the food when the caller can store it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ error: { code: 'NOT_FOUND', message: 'Product not found' } }, 404)),
+    );
+    const onKeepCode = vi.fn();
+    const { onOpenChange } = renderSheet({ onKeepCode });
+    const user = userEvent.setup();
+
+    await user.type(searchBox(), '5000159484695{Enter}');
+    await user.click(await screen.findByRole('button', { name: 'Keep barcode on this food' }));
+
+    expect(onKeepCode).toHaveBeenCalledWith('5000159484695');
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('has a Scan barcode button that opens the camera sheet', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ items: [] })),
+    );
+    renderSheet();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'Scan barcode' }));
+    expect(await screen.findByRole('dialog', { name: 'Scan barcode' })).toBeInTheDocument();
+    // jsdom has no camera API: the sheet reports that instead of hanging on the spinner.
+    expect(screen.getByText('This browser cannot access the camera')).toBeInTheDocument();
   });
 
   it('shows the server message on failure and retries', async () => {

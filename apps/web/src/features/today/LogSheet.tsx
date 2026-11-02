@@ -7,8 +7,9 @@ import {
   type Food,
   type MealSlot,
   type MealTemplate,
+  type OffResult,
 } from '@plate/shared';
-import { Check, Search, X } from 'lucide-react';
+import { Check, ScanBarcode, Search, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -17,9 +18,12 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Sheet } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/spinner';
-import { useCreateFood, useFoods } from '@/features/foods/api';
+import { useCreateFood, useFoods, useOffLookup } from '@/features/foods/api';
 import { useLogMealTemplate, useMealTemplates } from '@/features/meals/api';
+import { BarcodeScannerSheet } from '@/features/scan/BarcodeScannerSheet';
+import { useAbout } from '@/features/settings/api';
 import { ApiClientError } from '@/lib/api';
+import { sameBarcode } from '@/lib/barcode';
 import { formatDayLabel, isoAt, nowMinutes } from '@/lib/dates';
 import { AdHocStep } from './AdHocStep';
 import { useAddEntry } from './api';
@@ -33,6 +37,8 @@ import {
   type TemplateLogFormValues,
 } from './log-form-schemas';
 import { QuantityStep } from './QuantityStep';
+import { scannedResultToFoodInput } from './scan-helpers';
+import { ScannedStep } from './ScannedStep';
 import { TemplateStep } from './TemplateStep';
 
 export interface LogSheetProps {
@@ -50,8 +56,8 @@ export interface LogSheetProps {
   initialFoodId?: number | undefined;
   /** Opens straight at the review step of this meal template (`?log=t<id>`). */
   initialTemplateId?: number | undefined;
-  /** Where "Create as new food" goes. */
-  onCreateFood: (name: string) => void;
+  /** Where "Create as new food" goes; `offCode` is a scanned barcode to keep on the new food. */
+  onCreateFood: (name: string, offCode?: string) => void;
 }
 
 type Step =
@@ -59,6 +65,8 @@ type Step =
   | { kind: 'quantity'; food: Food }
   | { kind: 'template'; template: MealTemplate }
   | { kind: 'adhoc'; name: string }
+  /** A scanned barcode no library food carries: Open Food Facts product or the ways out. */
+  | { kind: 'scanned'; code: string }
   | { kind: 'loading' };
 
 const FORM_ID = 'log-entry-form';
@@ -91,6 +99,9 @@ function LogSheetInner({
 }: LogSheetProps) {
   const foods = useFoods();
   const templates = useMealTemplates({ enabled: initialTemplateId !== undefined });
+  // Whether a scanned code may be looked up online; unknown (still loading) counts as yes.
+  const about = useAbout();
+  const offEnabled = about.data?.offEnabled !== false;
   const addEntry = useAddEntry();
   const logTemplate = useLogMealTemplate();
   const createFood = useCreateFood();
@@ -98,6 +109,7 @@ function LogSheetInner({
   const [query, setQuery] = useState('');
   const [slotId, setSlotId] = useState<number | undefined>(initialSlotId);
   const [done, setDone] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const intent = useRef<'log' | 'log-and-add'>('log');
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -154,6 +166,44 @@ function LogSheetInner({
   const finish = () => {
     setDone(true);
     closeTimer.current = setTimeout(onClose, CHECK_MS);
+  };
+
+  // The product lookup for the scanned step only; '' keeps the query disabled on every other step.
+  const scanLookup = useOffLookup(
+    effectiveStep.kind === 'scanned' && offEnabled ? effectiveStep.code : '',
+  );
+
+  /** A library food with the code goes straight to quantity; anything else to the scanned step. */
+  const onScanned = (code: string) => {
+    setScanOpen(false);
+    const match = (foods.data ?? []).find((f) => sameBarcode(f.offCode, code));
+    if (match) {
+      setStep({ kind: 'quantity', food: match });
+      return;
+    }
+    setStep({ kind: 'scanned', code });
+  };
+
+  /** "Add to library and log": the product becomes a food (code kept), then on to quantity. */
+  const addScannedAndLog = async (result: OffResult) => {
+    try {
+      const food = await createFood.mutateAsync(scannedResultToFoodInput(result));
+      toast.success(`${food.name} added to your library`);
+      setStep({ kind: 'quantity', food });
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 409) {
+        const details = err.details as { archived?: boolean } | undefined;
+        toast.error(
+          details?.archived
+            ? `An archived food named “${result.name}” exists. Restore it under Foods (show archived) to log it.`
+            : `“${result.name}” is already in your library. Pick it from the list instead.`,
+        );
+      } else if (err instanceof ApiClientError) {
+        toast.error(err.message);
+      } else {
+        toast.error('Could not save the food. Try again.');
+      }
+    }
   };
 
   const submitQuantity = (food: Food, values: QuantityFormValues) => {
@@ -314,7 +364,29 @@ function LogSheetInner({
               description: `Logged to ${formatDayLabel(day)} without a library food.`,
               onBack: () => setStep({ kind: 'pick' }),
             }
-          : { title: 'Log food', description: formatDayLabel(day), onBack: undefined };
+          : current.kind === 'scanned'
+            ? {
+                title: `Barcode ${current.code}`,
+                description: 'Not in your library yet.',
+                onBack: () => setStep({ kind: 'pick' }),
+              }
+            : { title: 'Log food', description: formatDayLabel(day), onBack: undefined };
+
+  const scannedProduct =
+    current.kind === 'scanned' && offEnabled ? scanLookup.data?.[0] : undefined;
+  // Primary only once it is the sole way forward (no product, lookup off); secondary while the
+  // lookup is still running or found something.
+  const scanLookupPending = current.kind === 'scanned' && offEnabled && scanLookup.isPending;
+  const createManually = (code: string) => (
+    <Button
+      type="button"
+      variant={scannedProduct || scanLookupPending ? 'secondary' : 'primary'}
+      onClick={() => onCreateFood(scannedProduct?.name ?? '', code)}
+      disabled={createFood.isPending}
+    >
+      Create food manually
+    </Button>
+  );
 
   const footer =
     current.kind === 'quantity' ? (
@@ -356,6 +428,19 @@ function LogSheetInner({
       >
         Log
       </Button>
+    ) : current.kind === 'scanned' ? (
+      <>
+        {createManually(current.code)}
+        {scannedProduct ? (
+          <Button
+            type="button"
+            onClick={() => void addScannedAndLog(scannedProduct)}
+            loading={createFood.isPending}
+          >
+            Add to library and log
+          </Button>
+        ) : null}
+      </>
     ) : undefined;
 
   return (
@@ -391,37 +476,49 @@ function LogSheetInner({
                 ))}
               </Select>
             </div>
-            <div className="relative">
-              <Search
-                className="text-fg-muted pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
-                aria-hidden="true"
-              />
-              <Input
-                ref={searchRef}
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search foods"
-                aria-label="Search foods"
-                autoComplete="off"
-                autoCorrect="off"
-                enterKeyHint="search"
-                className="pr-10 pl-10"
-                data-autofocus
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery('');
-                    searchRef.current?.focus();
-                  }}
-                  aria-label="Clear search"
-                  className="text-fg-muted hover:text-fg absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full"
-                >
-                  <X className="size-4" />
-                </button>
-              ) : null}
+            <div className="flex gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  className="text-fg-muted pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
+                  aria-hidden="true"
+                />
+                <Input
+                  ref={searchRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search foods"
+                  aria-label="Search foods"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  enterKeyHint="search"
+                  className="pr-10 pl-10"
+                  data-autofocus
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery('');
+                      searchRef.current?.focus();
+                    }}
+                    aria-label="Clear search"
+                    className="text-fg-muted hover:text-fg absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full"
+                  >
+                    <X className="size-4" />
+                  </button>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Scan barcode"
+                title="Scan barcode"
+                onClick={() => setScanOpen(true)}
+              >
+                <ScanBarcode className="size-5" aria-hidden="true" />
+              </Button>
             </div>
           </div>
         ) : undefined
@@ -463,6 +560,8 @@ function LogSheetInner({
           goalKcal={goalKcal}
           onSubmit={(values) => submitTemplate(current.template, values)}
         />
+      ) : current.kind === 'scanned' ? (
+        <ScannedStep code={current.code} offEnabled={offEnabled} lookup={scanLookup} />
       ) : (
         <AdHocStep
           formId={FORM_ID}
@@ -475,6 +574,8 @@ function LogSheetInner({
           onSubmit={(values) => void submitAdHoc(values)}
         />
       )}
+
+      <BarcodeScannerSheet open={scanOpen} onOpenChange={setScanOpen} onDetected={onScanned} />
 
       {done ? (
         <div
