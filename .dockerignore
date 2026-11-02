@@ -11,3 +11,7 @@
 docker/data
 *.md
 !README.md
+**/e2e
+**/playwright-report
+**/test-results
+tools
