@@ -13,7 +13,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertTriangle, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Controller, useFieldArray, useForm, useWatch, type UseFormReturn } from 'react-hook-form';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -138,11 +137,9 @@ export function DishForm({
       ? servingGrams(cooked, servings)
       : null;
 
+  // The same ingredient may appear on more than one line (oil for frying and for finishing, say);
+  // the per-100 math simply sums the lines.
   const addIngredient = (food: Food) => {
-    if ((watchedIngredients ?? []).some((i) => i.foodId === food.id)) {
-      toast(`${food.name} is already in the recipe`);
-      return;
-    }
     ingredients.append({ foodId: food.id, amount: fmt(food.portions[0]?.amount ?? 100) });
   };
 

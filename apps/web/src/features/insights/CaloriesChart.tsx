@@ -47,7 +47,13 @@ export interface CaloriesChartProps {
 }
 
 interface Row {
+  /**
+   * The day, or the aligned week start: the x-axis category (so the goal band and line, which
+   * reference keys, land on the bars) and what a click navigates to.
+   */
   key: string;
+  /** The day printed under the bar: the first day it covers (a clipped first week starts at the range). */
+  tick: string;
   label: string;
   kcal: number;
   goal: number | null;
@@ -104,6 +110,7 @@ export function CaloriesChart({
   const rows: Row[] = weekly
     ? weeklyIntake(daily, weekStart).map((week) => ({
         key: week.weekStart,
+        tick: week.from,
         label: weekLabel(week),
         kcal: week.avgKcal ?? 0,
         goal: week.goalKcal,
@@ -112,6 +119,7 @@ export function CaloriesChart({
       }))
     : daily.map((d) => ({
         key: d.day,
+        tick: d.day,
         label: formatDayLabel(d.day),
         kcal: d.totals.kcal,
         goal: d.goalKcal,
@@ -119,14 +127,15 @@ export function CaloriesChart({
         color: STATUS_COLOR[d.status],
       }));
   const runs = goalRuns(rows);
+  const rowsByKey = new Map(rows.map((row) => [row.key, row]));
   const band = (goal: number) => [goal * (1 - tolerancePct / 100), goal * (1 + tolerancePct / 100)];
   const yMax = niceMax(
     Math.max(0, ...rows.map((r) => r.kcal), ...runs.map((r) => band(r.goal)[1]!)),
     500,
   );
 
-  const tickLabel = (key: string) => {
-    const date = parseDayKey(key);
+  const tickLabel = (tick: string) => {
+    const date = parseDayKey(tick);
     if (weekly) return format(date, 'd MMM');
     if (rows.length <= 7) return format(date, 'EEE');
     if (rows.length <= 31) return format(date, 'd');
@@ -162,7 +171,7 @@ export function CaloriesChart({
             <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
               dataKey="key"
-              tickFormatter={tickLabel}
+              tickFormatter={(key: string) => tickLabel(rowsByKey.get(key)?.tick ?? key)}
               tick={{ fontSize: 11, fill: MUTED }}
               axisLine={false}
               tickLine={false}

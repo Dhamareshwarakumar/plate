@@ -39,6 +39,8 @@ type View = 'grams' | 'split';
 
 interface Row {
   key: string;
+  /** The x-axis day: the first day the bar covers (a clipped first week starts at the range). */
+  tick: string;
   label: string;
   protein: number;
   carbs: number;
@@ -86,6 +88,7 @@ function GramsChart({ daily, weekly, weekStart }: Omit<MacrosChartProps, 'summar
   const rows: Row[] = weekly
     ? weeklyIntake(daily, weekStart).map((week) => ({
         key: week.weekStart,
+        tick: week.from,
         label:
           week.from === week.to
             ? formatDayWithYear(week.from)
@@ -96,14 +99,15 @@ function GramsChart({ daily, weekly, weekStart }: Omit<MacrosChartProps, 'summar
       }))
     : daily.map((d) => ({
         key: d.day,
+        tick: d.day,
         label: formatDayLabel(d.day),
         protein: d.totals.protein,
         carbs: d.totals.carbs,
         fat: d.totals.fat,
       }));
   const yMax = niceMax(Math.max(0, ...rows.map((r) => r.protein + r.carbs + r.fat)), 50);
-  const tickLabel = (key: string) => {
-    const date = parseDayKey(key);
+  const tickLabel = (tick: string) => {
+    const date = parseDayKey(tick);
     if (weekly) return format(date, 'd MMM');
     if (rows.length <= 7) return format(date, 'EEE');
     if (rows.length <= 31) return format(date, 'd');
@@ -122,7 +126,7 @@ function GramsChart({ daily, weekly, weekStart }: Omit<MacrosChartProps, 'summar
           >
             <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
-              dataKey="key"
+              dataKey="tick"
               tickFormatter={tickLabel}
               tick={{ fontSize: 11, fill: MUTED }}
               axisLine={false}

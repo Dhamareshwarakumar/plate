@@ -29,6 +29,8 @@ export interface ErrorStateProps {
   title?: string;
   message: string;
   onRetry?: () => void;
+  /** Button text; "Try again" unless the action is really something else (e.g. "Reload"). */
+  retryLabel?: string;
   retrying?: boolean;
   className?: string;
 }
@@ -37,6 +39,7 @@ export function ErrorState({
   title = 'Something went wrong',
   message,
   onRetry,
+  retryLabel = 'Try again',
   retrying = false,
   className,
 }: ErrorStateProps) {
@@ -52,7 +55,7 @@ export function ErrorState({
       <p className="text-fg-muted mt-1 max-w-xs text-sm">{message}</p>
       {onRetry ? (
         <Button variant="secondary" className="mt-5" onClick={onRetry} loading={retrying}>
-          Try again
+          {retryLabel}
         </Button>
       ) : null}
     </div>

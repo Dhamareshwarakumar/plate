@@ -133,19 +133,21 @@ function LogSheetInner({
     initialTemplateId === undefined
       ? undefined
       : templates.data?.find((t) => t.id === initialTemplateId);
+  // A deep link to a food or template that is not in the cache yet (just created, list still
+  // refetching) shows the loading step, not the picker, until the fetch settles.
   const effectiveStep: Step =
     step ??
     (initialTemplateId !== undefined
       ? initialTemplate
         ? { kind: 'template', template: initialTemplate }
-        : templates.isPending
+        : templates.isPending || templates.isFetching
           ? { kind: 'loading' }
           : { kind: 'pick' }
       : initialFoodId === undefined
         ? { kind: 'pick' }
         : initialFood
           ? { kind: 'quantity', food: initialFood }
-          : foods.isPending
+          : foods.isPending || foods.isFetching
             ? { kind: 'loading' }
             : { kind: 'pick' });
 

@@ -120,3 +120,36 @@ describe('SummaryCard live announcements', () => {
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 });
+
+describe('SummaryCard over-goal colour', () => {
+  const eaten = (kcal: number, status: DiaryDay['status']) =>
+    day({
+      totals: {
+        kcal,
+        protein: 120,
+        carbs: 250,
+        fat: 80,
+        fiber: null,
+        sugar: null,
+        saturatedFat: null,
+        sodiumMg: null,
+      },
+      status,
+      remaining: { kcal: 2000 - kcal, protein: 30, carbs: -50, fat: -10, fiber: null },
+    });
+
+  it('keeps the "over" line muted while the day is still on target', () => {
+    renderCard(eaten(2100, 'on_target'));
+    const line = screen.getByText('100 over').parentElement!;
+    expect(line).toHaveClass('text-fg-muted');
+    expect(line).not.toHaveClass('text-over-fg');
+    expect(screen.getByText('On target')).toBeInTheDocument();
+  });
+
+  it('turns the "over" line red once the day is over the band', () => {
+    renderCard(eaten(2300, 'over'));
+    const line = screen.getByText('300 over').parentElement!;
+    expect(line).toHaveClass('text-over-fg');
+    expect(screen.getByText('Over goal')).toBeInTheDocument();
+  });
+});

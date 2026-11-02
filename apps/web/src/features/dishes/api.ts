@@ -1,12 +1,7 @@
 import { dishSchema, type Dish, type DishInput } from '@plate/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { foodKeys } from '@/features/foods/api';
 import { apiRequest } from '@/lib/api';
-
-export const dishKeys = {
-  all: ['dishes'] as const,
-  detail: (id: number) => ['dishes', 'detail', id] as const,
-};
+import { dishKeys, foodKeys, mealTemplateKeys } from '@/lib/query-keys';
 
 export function useDish(id: number | undefined) {
   return useQuery({
@@ -17,12 +12,16 @@ export function useDish(id: number | undefined) {
   });
 }
 
-/** Dishes are foods too: every dish change refreshes the food list the pickers and tabs read. */
+/**
+ * Dishes are foods too: every dish change refreshes the food list the pickers and tabs read, and
+ * the meal templates whose items reference the dish (their previews use its current per-100).
+ */
 function useSettleDish() {
   const queryClient = useQueryClient();
   return (dish: Dish) => {
     queryClient.setQueryData(dishKeys.detail(dish.id), dish);
     void queryClient.invalidateQueries({ queryKey: foodKeys.all });
+    void queryClient.invalidateQueries({ queryKey: mealTemplateKeys.all });
   };
 }
 

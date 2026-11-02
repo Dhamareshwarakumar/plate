@@ -12,7 +12,8 @@ import { ErrorState } from '@/components/ui/states';
 import { useCategories, useDeleteFood, useFoods, useSetFoodArchived } from '@/features/foods/api';
 import { ApiClientError } from '@/lib/api';
 import { cn } from '@/lib/cn';
-import { dishKeys, useCreateDish, useDish, useRecalculateDish, useUpdateDish } from './api';
+import { dishKeys } from '@/lib/query-keys';
+import { useCreateDish, useDish, useRecalculateDish, useUpdateDish } from './api';
 import { toDishInput, type DishFormValues } from './dish-form-schema';
 import { DishForm } from './DishForm';
 
@@ -109,7 +110,6 @@ export function DishEditorPage() {
         id: current.id,
         archived: current.archivedAt === null,
       });
-      void queryClient.invalidateQueries({ queryKey: dishKeys.detail(current.id) });
       toast.success(updated.archivedAt ? `${updated.name} archived` : `${updated.name} restored`);
       if (updated.archivedAt) close();
     } catch (err) {

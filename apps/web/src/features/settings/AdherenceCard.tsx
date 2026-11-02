@@ -34,9 +34,13 @@ export function AdherenceCard() {
             How close to the calorie goal still counts as on target.
           </CardDescription>
         </div>
-        <span className="text-fg tabular shrink-0 text-2xl font-semibold" aria-hidden="true">
-          ±{value}%
-        </span>
+        {settings.isPending ? (
+          <Skeleton className="h-8 w-16 shrink-0" />
+        ) : (
+          <span className="text-fg tabular shrink-0 text-2xl font-semibold" aria-hidden="true">
+            ±{value}%
+          </span>
+        )}
       </div>
       {settings.isPending ? (
         <Skeleton className="mt-5 h-11" />

@@ -55,6 +55,9 @@ export function FoodPicker({
     return filter ? all.filter(filter) : all;
   }, [foods.data, filter]);
   const templates = templatesEnabled ? (templatesQuery.data ?? NO_TEMPLATES) : NO_TEMPLATES;
+  // A failed templates request must stay visible: the Meals shelf keeps its chip and shows the
+  // error with a retry, and searches say that templates are missing from the results.
+  const templatesFailed = templatesEnabled && templatesQuery.isError;
   const byId = useMemo(() => new Map(library.map((f) => [f.id, f])), [library]);
   const categoryName = useMemo(
     () => new Map((categories.data ?? []).map((c) => [c.id, c.name])),
@@ -109,14 +112,22 @@ export function FoodPicker({
     return library.some((f) => normalize(f.name) === q);
   }, [searching, library, query]);
 
-  const shelves: { value: Shelf; label: string; count: number }[] = [
-    { value: 'recent', label: 'Recent', count: recentFoods.length },
-    { value: 'frequent', label: 'Frequent', count: frequentFoods.length },
-    { value: 'dishes', label: 'Dishes', count: dishes.length },
+  // Shelves are disabled while empty, except All, and Meals when the request failed (the shelf then
+  // shows the error).
+  const shelves: { value: Shelf; label: string; disabled: boolean }[] = [
+    { value: 'recent', label: 'Recent', disabled: recentFoods.length === 0 },
+    { value: 'frequent', label: 'Frequent', disabled: frequentFoods.length === 0 },
+    { value: 'dishes', label: 'Dishes', disabled: dishes.length === 0 },
     ...(templatesEnabled
-      ? [{ value: 'meals' as const, label: 'Meals', count: templates.length }]
+      ? [
+          {
+            value: 'meals' as const,
+            label: 'Meals',
+            disabled: !templatesFailed && templates.length === 0,
+          },
+        ]
       : []),
-    { value: 'all', label: 'All', count: library.length },
+    { value: 'all', label: 'All', disabled: false },
   ];
 
   const emptyShelfText =
@@ -144,7 +155,7 @@ export function FoodPicker({
             aria-selected={!searching && shelf === s.value}
             selected={!searching && shelf === s.value}
             onClick={() => setShelfChoice(s.value)}
-            disabled={s.value !== 'all' && s.count === 0}
+            disabled={s.disabled}
             className="disabled:opacity-50"
           >
             {s.label}
@@ -161,6 +172,14 @@ export function FoodPicker({
           retrying={foods.isFetching}
           className="py-8"
         />
+      ) : shelf === 'meals' && !searching && templatesFailed ? (
+        <ErrorState
+          title="Meal templates didn't load"
+          message={templatesQuery.error?.message ?? 'Could not load meal templates.'}
+          onRetry={() => void templatesQuery.refetch()}
+          retrying={templatesQuery.isFetching}
+          className="py-8"
+        />
       ) : library.length === 0 && !searching && templates.length === 0 ? (
         <EmptyState
           icon={Apple}
@@ -174,6 +193,21 @@ export function FoodPicker({
         />
       ) : (
         <ul className="divide-border -mx-2 divide-y">
+          {searching && templatesFailed ? (
+            <li
+              role="alert"
+              className="text-fg-muted flex items-center justify-between gap-3 px-2 py-2.5 text-xs"
+            >
+              <span>Meal templates didn't load, so none are in these results.</span>
+              <button
+                type="button"
+                onClick={() => void templatesQuery.refetch()}
+                className="text-accent shrink-0 font-medium"
+              >
+                Retry
+              </button>
+            </li>
+          ) : null}
           {templateResults.map((template) => (
             <li key={`t${template.id}`}>
               <button

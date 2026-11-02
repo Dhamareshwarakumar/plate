@@ -4,6 +4,7 @@ import { lazyNamed } from './lazy';
 import { AppShell } from './layout/AppShell';
 import { RootLayout } from './layout/RootLayout';
 import { NotFoundPage } from './NotFoundPage';
+import { RouteErrorPage } from './RouteErrorPage';
 
 // Every page is its own chunk (NFR: eager payload < 250 kB gzip, checked by tools/check-bundle.mjs).
 // The guard, the shell and the 404 page stay in the entry chunk because they render first.
@@ -32,6 +33,9 @@ const MealSlotsPage = lazyNamed(() => import('@/features/settings/MealSlotsPage'
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
+    // Outside the shell (login chunk, the shell itself): a full-page error with Reload instead of
+    // the router's default stack-trace page.
+    errorElement: <RouteErrorPage />,
     children: [
       { path: '/login', element: <LoginPage /> },
       {
@@ -40,28 +44,35 @@ export const router = createBrowserRouter([
           {
             element: <AppShell />,
             children: [
-              { index: true, element: <Navigate to="/today" replace /> },
-              { path: 'today', element: <TodayRedirect /> },
-              { path: 'today/:day', element: <TodayPage /> },
               {
-                path: 'foods',
-                element: <FoodsPage />,
+                // Pathless: page errors (a chunk that failed to load, a render crash) show inside
+                // <main> and keep the tab bar / sidebar usable.
+                errorElement: <RouteErrorPage inShell />,
                 children: [
-                  { path: 'new', element: <FoodEditorPage /> },
-                  { path: 'dishes', element: <Navigate to="/foods?tab=dishes" replace /> },
-                  { path: 'dishes/new', element: <DishEditorPage /> },
-                  { path: 'dishes/:id', element: <DishEditorPage /> },
-                  { path: 'meals', element: <Navigate to="/foods?tab=meals" replace /> },
-                  { path: 'meals/new', element: <MealTemplateEditorPage /> },
-                  { path: 'meals/:id', element: <MealTemplateEditorPage /> },
-                  { path: ':id', element: <FoodEditorPage /> },
+                  { index: true, element: <Navigate to="/today" replace /> },
+                  { path: 'today', element: <TodayRedirect /> },
+                  { path: 'today/:day', element: <TodayPage /> },
+                  {
+                    path: 'foods',
+                    element: <FoodsPage />,
+                    children: [
+                      { path: 'new', element: <FoodEditorPage /> },
+                      { path: 'dishes', element: <Navigate to="/foods?tab=dishes" replace /> },
+                      { path: 'dishes/new', element: <DishEditorPage /> },
+                      { path: 'dishes/:id', element: <DishEditorPage /> },
+                      { path: 'meals', element: <Navigate to="/foods?tab=meals" replace /> },
+                      { path: 'meals/new', element: <MealTemplateEditorPage /> },
+                      { path: 'meals/:id', element: <MealTemplateEditorPage /> },
+                      { path: ':id', element: <FoodEditorPage /> },
+                    ],
+                  },
+                  { path: 'insights', element: <InsightsPage /> },
+                  { path: 'weight', element: <WeightPage /> },
+                  { path: 'more', element: <MorePage /> },
+                  { path: 'more/categories', element: <CategoriesPage /> },
+                  { path: 'more/meal-slots', element: <MealSlotsPage /> },
                 ],
               },
-              { path: 'insights', element: <InsightsPage /> },
-              { path: 'weight', element: <WeightPage /> },
-              { path: 'more', element: <MorePage /> },
-              { path: 'more/categories', element: <CategoriesPage /> },
-              { path: 'more/meal-slots', element: <MealSlotsPage /> },
             ],
           },
         ],

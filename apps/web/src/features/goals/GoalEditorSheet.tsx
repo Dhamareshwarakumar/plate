@@ -10,6 +10,7 @@ import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { NumberField, parseDecimal } from '@/components/ui/number-field';
 import { Sheet } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useProfile, useSaveProfile } from '@/features/settings/api';
 import { sameProfile } from '@/features/settings/profile-form-schema';
 import { useWeightStats } from '@/features/weight/api';
@@ -187,14 +188,20 @@ function GoalEditorSheetInner({ open, onClose, goal }: GoalEditorSheetProps) {
           />
         </button>
         {calcOpen ? (
-          <CalculatorPanel
-            profile={profile.data ?? null}
-            defaultWeightKg={weightStats.data?.latest?.kg}
-            onPickKcal={pickKcal}
-            onProfileChange={(p) => {
-              calcProfile.current = p;
-            }}
-          />
+          // The panel mounts with the saved profile and latest weight as defaults, so it waits for
+          // both requests to settle (cold cache) instead of starting empty.
+          profile.isPending || weightStats.isPending ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <CalculatorPanel
+              profile={profile.data ?? null}
+              defaultWeightKg={weightStats.data?.latest?.kg}
+              onPickKcal={pickKcal}
+              onProfileChange={(p) => {
+                calcProfile.current = p;
+              }}
+            />
+          )
         ) : null}
 
         <div className="flex flex-col gap-3">

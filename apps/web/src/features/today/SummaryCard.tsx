@@ -67,7 +67,9 @@ function GoalSummary({ day, goal, className }: SummaryCardProps & { goal: Goal }
         <p
           className={cn(
             'tabular mt-3 flex items-center gap-2 text-sm font-medium',
-            over ? 'text-over-fg' : 'text-fg-muted',
+            // Red only when the day is actually over the band; a few kcal over the goal but still
+            // on target keeps the muted colour so it agrees with the green ring and tag.
+            status === 'over' ? 'text-over-fg' : 'text-fg-muted',
           )}
         >
           <span>

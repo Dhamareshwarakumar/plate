@@ -31,18 +31,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { cachedTolerance } from '@/features/settings/api';
 import { apiRequest, ApiClientError } from '@/lib/api';
-
-export const diaryKeys = {
-  all: ['diary'] as const,
-  day: (day: string) => ['diary', 'day', day] as const,
-  days: (from: string, to: string) => ['diary', 'days', { from, to }] as const,
-  recent: ['diary', 'recent'] as const,
-  frequent: ['diary', 'frequent'] as const,
-};
-export const mealSlotKeys = {
-  all: ['mealSlots'] as const,
-  list: (includeArchived: boolean) => ['mealSlots', 'list', { includeArchived }] as const,
-};
+import { diaryKeys, mealSlotKeys } from '@/lib/query-keys';
 
 // ---------- queries ----------
 

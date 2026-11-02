@@ -15,20 +15,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { cachedTolerance } from '@/features/settings/api';
-import { diaryKeys, insertEntry } from '@/features/today/api';
+import { insertEntry } from '@/features/today/api';
 import { apiRequest, ApiClientError } from '@/lib/api';
 import { todayKey } from '@/lib/dates';
+import { diaryKeys, mealTemplateKeys } from '@/lib/query-keys';
 
 /** Deep link that opens the log sheet on today's diary at the template review step (D63 URL state). */
 export function logTemplatePath(id: number): string {
   return `/today/${todayKey()}?log=t${id}`;
 }
-
-export const mealTemplateKeys = {
-  all: ['mealTemplates'] as const,
-  list: ['mealTemplates', 'list'] as const,
-  detail: (id: number) => ['mealTemplates', 'detail', id] as const,
-};
 
 export function useMealTemplates(options: { enabled?: boolean } = {}) {
   return useQuery({

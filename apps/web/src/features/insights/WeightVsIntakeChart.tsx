@@ -24,6 +24,8 @@ export interface WeightVsIntakeChartProps {
 
 interface Row {
   key: string;
+  /** The x-axis day: the first day the bucket covers (a clipped first week starts at the range). */
+  tick: string;
   label: string;
   avgKcal: number | null;
   avgWeightKg: number | null;
@@ -39,6 +41,7 @@ const weekLabel = (week: WeightVsIntakePoint) =>
 export function WeightVsIntakeChart({ weeks }: WeightVsIntakeChartProps) {
   const rows: Row[] = weeks.map((week) => ({
     key: week.weekStart,
+    tick: week.from,
     label: weekLabel(week),
     avgKcal: week.avgKcal,
     avgWeightKg: week.avgWeightKg === null ? null : Math.round(week.avgWeightKg * 100) / 100,
@@ -62,8 +65,8 @@ export function WeightVsIntakeChart({ weeks }: WeightVsIntakeChartProps) {
           >
             <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
-              dataKey="key"
-              tickFormatter={(key: string) => format(parseDayKey(key), 'd MMM')}
+              dataKey="tick"
+              tickFormatter={(tick: string) => format(parseDayKey(tick), 'd MMM')}
               tick={{ fontSize: 11, fill: MUTED }}
               axisLine={false}
               tickLine={false}

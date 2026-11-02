@@ -11,7 +11,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useFieldArray, useForm, useWatch, type UseFormReturn } from 'react-hook-form';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tag } from '@/components/ui/chip';
 import { Field } from '@/components/ui/field';
@@ -107,11 +106,9 @@ export function MealTemplateForm({
   });
   const totals = sumNutrients(lines.flatMap((l) => (l.totals ? [l.totals] : [])));
 
+  // The same food may appear on more than one line (as "Save as meal" keeps it, D88); each line is
+  // its own diary entry when the template is logged.
   const addItem = (food: Food) => {
-    if ((watchedItems ?? []).some((i) => i.foodId === food.id)) {
-      toast(`${food.name} is already in this meal`);
-      return;
-    }
     items.append({ foodId: food.id, amount: fmt(food.portions[0]?.amount ?? 100) });
   };
 

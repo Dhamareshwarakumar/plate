@@ -110,7 +110,7 @@ function ImportSheetInner({ open, onOpenChange }: Props) {
       <div className="flex flex-col gap-4">
         <label
           className={cn(
-            'border-border-strong hover:border-accent hover:bg-accent-soft/40 flex cursor-pointer flex-col items-center gap-2 rounded-card border border-dashed px-4 py-6 text-center transition-colors',
+            'border-border-strong hover:border-accent hover:bg-accent-soft/40 focus-within:outline-ring flex cursor-pointer flex-col items-center gap-2 rounded-card border border-dashed px-4 py-6 text-center transition-colors focus-within:outline-2 focus-within:outline-offset-2',
             csv && 'border-accent bg-accent-soft/30',
           )}
         >

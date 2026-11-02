@@ -10,6 +10,7 @@ import {
 import { useId, useState } from 'react';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { ImportCsvSheet } from '@/features/foods/ImportCsvSheet';
+import { todayKey } from '@/lib/dates';
 import { DOWNLOADS } from './api';
 import { ExportDiaryCsvSheet } from './ExportDiaryCsvSheet';
 import { ImportBackupSheet } from './ImportBackupSheet';
@@ -28,7 +29,8 @@ interface Action {
 /** More → Data (FR-S4, FR-S5): backups and CSV in and out. */
 export function DataCard() {
   const [sheet, setSheet] = useState<OpenSheet>(null);
-  const download = (url: string) => () => window.location.assign(url);
+  // The URL is built on click so a download started after midnight carries the new day.
+  const download = (url: () => string) => () => window.location.assign(url());
 
   const groups: { title: string; actions: Action[] }[] = [
     {
@@ -39,7 +41,7 @@ export function DataCard() {
           label: 'Export backup',
           description: 'Everything as one JSON file you can restore later.',
           kind: 'download',
-          onSelect: download(DOWNLOADS.backupJson),
+          onSelect: download(() => DOWNLOADS.backupJson(todayKey())),
         },
         {
           icon: Upload,
@@ -53,7 +55,7 @@ export function DataCard() {
           label: 'Download database snapshot',
           description: 'The SQLite file itself, for your own tools.',
           kind: 'download',
-          onSelect: download(DOWNLOADS.backupSqlite),
+          onSelect: download(() => DOWNLOADS.backupSqlite(todayKey())),
         },
       ],
     },
@@ -65,7 +67,7 @@ export function DataCard() {
           label: 'Export foods CSV',
           description: 'Your food library as a spreadsheet.',
           kind: 'download',
-          onSelect: download(DOWNLOADS.foodsCsv),
+          onSelect: download(() => DOWNLOADS.foodsCsv),
         },
         {
           icon: Upload,

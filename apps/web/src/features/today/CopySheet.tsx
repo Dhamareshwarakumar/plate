@@ -54,13 +54,22 @@ function CopySheetInner({ request, day, slots, onClose }: CopySheetProps) {
   const destinationDay = mode === 'from' ? day : otherDay;
   const valid = isValidDayKey(otherDay) && (otherDay !== day || scope !== 'all');
 
+  // Entries from an archived meal cannot stay in it on the destination day (the server refuses an
+  // archived target, D57), so "Same meal" is not offered and the first active meal is preselected.
+  const scopeArchived = slots.some((s) => String(s.id) === scope && s.archivedAt !== null);
+  const targetOptions = active.filter((s) => String(s.id) !== scope);
+  const effectiveTarget =
+    scopeArchived && targetSlot === 'same' ? String(targetOptions[0]?.id ?? '') : targetSlot;
+
   const submit = async () => {
     if (!valid) return;
     const input = {
       fromDay: sourceDay,
       toDay: destinationDay,
       ...(scope !== 'all' ? { slotId: Number(scope) } : {}),
-      ...(scope !== 'all' && targetSlot !== 'same' ? { targetSlotId: Number(targetSlot) } : {}),
+      ...(scope !== 'all' && effectiveTarget !== 'same' && effectiveTarget !== ''
+        ? { targetSlotId: Number(effectiveTarget) }
+        : {}),
     };
     try {
       const result = await copy.mutateAsync(input);
@@ -141,22 +150,27 @@ function CopySheetInner({ request, day, slots, onClose }: CopySheetProps) {
           )}
         </Field>
         {scope !== 'all' ? (
-          <Field label="Into meal" description="Where the copied entries land.">
+          <Field
+            label="Into meal"
+            description={
+              scopeArchived
+                ? 'That meal is archived, so the copies go into an active one.'
+                : 'Where the copied entries land.'
+            }
+          >
             {(c) => (
               <Select
                 id={c.id}
                 aria-describedby={c['aria-describedby']}
-                value={targetSlot}
+                value={effectiveTarget}
                 onChange={(e) => setTargetSlot(e.target.value)}
               >
-                <option value="same">Same meal</option>
-                {active
-                  .filter((s) => String(s.id) !== scope)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
+                {!scopeArchived ? <option value="same">Same meal</option> : null}
+                {targetOptions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
               </Select>
             )}
           </Field>

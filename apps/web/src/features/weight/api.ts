@@ -9,12 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiRequest, ApiClientError } from '@/lib/api';
-
-export const weightKeys = {
-  all: ['weights'] as const,
-  list: ['weights', 'list'] as const,
-  stats: ['weights', 'stats'] as const,
-};
+import { weightKeys } from '@/lib/query-keys';
 
 /** The whole log, oldest first; ranges are filtered client-side (at most one row per day). */
 export function useWeights() {

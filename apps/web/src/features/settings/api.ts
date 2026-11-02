@@ -12,26 +12,17 @@ import {
 } from '@plate/shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { diaryKeys } from '@/features/today/api';
 import { apiRequest, ApiClientError } from '@/lib/api';
-
-export const settingsKeys = {
-  all: ['settings'] as const,
-};
-export const profileKeys = {
-  all: ['profile'] as const,
-};
-export const aboutKeys = {
-  all: ['about'] as const,
-};
+import { aboutKeys, diaryKeys, profileKeys, settingsKeys } from '@/lib/query-keys';
 
 /**
  * File downloads go through top-level navigation (the browser handles the attachment and the
- * cookie goes along), the same way the Foods page exports its CSV.
+ * cookie goes along), the same way the Foods page exports its CSV. The backups take the client's
+ * day for the file name: the server may run in UTC and would otherwise date a late export yesterday.
  */
 export const DOWNLOADS = {
-  backupJson: '/api/backup.json',
-  backupSqlite: '/api/backup.sqlite',
+  backupJson: (day: string) => `/api/backup.json?day=${day}`,
+  backupSqlite: (day: string) => `/api/backup.sqlite?day=${day}`,
   foodsCsv: '/api/foods/export.csv',
   diaryCsv: (from: string, to: string) => `/api/diary/export.csv?from=${from}&to=${to}`,
 } as const;

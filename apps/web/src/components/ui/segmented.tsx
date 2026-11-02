@@ -12,7 +12,10 @@ export interface SegmentedProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   options: readonly SegmentedOption<T>[];
-  'aria-label': string;
+  /** One of the two is needed: a label of its own, or the id of a visible label (`Field` group mode). */
+  'aria-label'?: string | undefined;
+  'aria-labelledby'?: string | undefined;
+  'aria-describedby'?: string | undefined;
   className?: string;
 }
 
@@ -47,6 +50,8 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={aria['aria-label']}
+      aria-labelledby={aria['aria-labelledby']}
+      aria-describedby={aria['aria-describedby']}
       onKeyDown={onKeyDown}
       className={cn(
         'bg-surface-2 relative grid auto-cols-fr grid-flow-col gap-1 rounded-control p-1',

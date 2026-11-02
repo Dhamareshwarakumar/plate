@@ -1,8 +1,16 @@
 import { checkMacroSanity, type Category, type Food, type OffResult } from '@plate/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ChevronDown, Globe, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Globe, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { Reorder, useDragControls } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { Controller, useFieldArray, useForm, type UseFormReturn } from 'react-hook-form';
+import {
+  Controller,
+  useFieldArray,
+  useForm,
+  useWatch,
+  type FieldError,
+  type UseFormReturn,
+} from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
@@ -68,9 +76,13 @@ export function FoodForm({
     ),
   );
 
-  const basis = form.watch('basis');
-  const offCode = form.watch('offCode');
-  const [kcal, protein, carbs, fat] = form.watch(['kcal', 'protein', 'carbs', 'fat']);
+  // `useWatch` rather than `form.watch()`: the React Compiler cannot memoize around `watch`.
+  const basis = useWatch({ control: form.control, name: 'basis' });
+  const offCode = useWatch({ control: form.control, name: 'offCode' });
+  const [kcal, protein, carbs, fat] = useWatch({
+    control: form.control,
+    name: ['kcal', 'protein', 'carbs', 'fat'],
+  });
   const sanity = sanityHint({ kcal, protein, carbs, fat });
   const [lookupOpen, setLookupOpen] = useState(false);
 
@@ -96,6 +108,11 @@ export function FoodForm({
     });
 
   const errors = form.formState.errors;
+  const portionIds = portions.fields.map((field) => field.id);
+  const movePortion = (from: number, to: number) => {
+    if (to < 0 || to >= portions.fields.length || from === to) return;
+    portions.move(from, to);
+  };
 
   return (
     <>
@@ -328,53 +345,32 @@ export function FoodForm({
             </p>
           </div>
           {portions.fields.length > 0 ? (
-            <ul className="flex flex-col gap-2">
-              {portions.fields.map((field, index) => {
-                const rowErrors = errors.portions?.[index];
-                return (
-                  <li
-                    key={field.id}
-                    className="grid grid-cols-[auto_1fr_7rem_auto] items-start gap-2"
-                  >
-                    <span className="text-fg-faint flex h-11 items-center" aria-hidden="true">
-                      <GripVertical className="size-4" />
-                    </span>
-                    <div>
-                      <Input
-                        aria-label={`Portion ${index + 1} label`}
-                        placeholder="1 medium"
-                        invalid={Boolean(rowErrors?.label)}
-                        {...form.register(`portions.${index}.label`)}
-                      />
-                      {rowErrors?.label ? (
-                        <p className="text-danger mt-1 text-xs">{rowErrors.label.message}</p>
-                      ) : null}
-                    </div>
-                    <div>
-                      <NumberField
-                        aria-label={`Portion ${index + 1} amount in ${basis}`}
-                        placeholder="118"
-                        suffix={basis}
-                        invalid={Boolean(rowErrors?.amount)}
-                        {...form.register(`portions.${index}.amount`)}
-                      />
-                      {rowErrors?.amount ? (
-                        <p className="text-danger mt-1 text-xs">{rowErrors.amount.message}</p>
-                      ) : null}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Remove portion ${index + 1}`}
-                      onClick={() => portions.remove(index)}
-                    >
-                      <Trash2 className="text-fg-muted size-4" />
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
+            // Drag the handle (or press Space on a focused row, then the arrows) to reorder; the
+            // move buttons are the keyboard fallback. `values` are the field-array ids, which
+            // react-hook-form keeps stable across moves.
+            <Reorder.Group
+              axis="y"
+              values={portionIds}
+              onReorder={(order, moved) =>
+                movePortion(portionIds.indexOf(moved), order.indexOf(moved))
+              }
+              className="flex flex-col gap-2"
+              aria-label="Portions"
+            >
+              {portions.fields.map((field, index) => (
+                <PortionRow
+                  key={field.id}
+                  id={field.id}
+                  index={index}
+                  count={portions.fields.length}
+                  basis={basis}
+                  form={form}
+                  errors={errors.portions?.[index]}
+                  onMove={movePortion}
+                  onRemove={() => portions.remove(index)}
+                />
+              ))}
+            </Reorder.Group>
           ) : null}
           {(errors.portions?.root?.message ?? errors.portions?.message) ? (
             <p className="text-danger text-sm">
@@ -421,6 +417,94 @@ export function FoodForm({
         />
       ) : null}
     </>
+  );
+}
+
+interface PortionRowProps {
+  /** The field-array id; also the row's `Reorder.Item` value. */
+  id: string;
+  index: number;
+  count: number;
+  basis: FoodFormValues['basis'];
+  form: UseFormReturn<FoodFormValues>;
+  errors: { label?: FieldError | undefined; amount?: FieldError | undefined } | undefined;
+  onMove: (from: number, to: number) => void;
+  onRemove: () => void;
+}
+
+/** One portion line: drag handle, label, amount, move up/down (keyboard fallback), remove. */
+function PortionRow({ id, index, count, basis, form, errors, onMove, onRemove }: PortionRowProps) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={id}
+      dragListener={false}
+      dragControls={controls}
+      whileDrag={{ scale: 1.02 }}
+      className="bg-bg lg:bg-surface grid grid-cols-[auto_1fr_7rem_auto_auto] items-start gap-2 rounded-control"
+    >
+      <span
+        aria-hidden="true"
+        onPointerDown={(event) => controls.start(event)}
+        className="text-fg-faint flex h-11 cursor-grab touch-none items-center active:cursor-grabbing"
+      >
+        <GripVertical className="size-4" />
+      </span>
+      <div>
+        <Input
+          aria-label={`Portion ${index + 1} label`}
+          placeholder="1 medium"
+          invalid={Boolean(errors?.label)}
+          {...form.register(`portions.${index}.label`)}
+        />
+        {errors?.label ? <p className="text-danger mt-1 text-xs">{errors.label.message}</p> : null}
+      </div>
+      <div>
+        <NumberField
+          aria-label={`Portion ${index + 1} amount in ${basis}`}
+          placeholder="118"
+          suffix={basis}
+          invalid={Boolean(errors?.amount)}
+          {...form.register(`portions.${index}.amount`)}
+        />
+        {errors?.amount ? (
+          <p className="text-danger mt-1 text-xs">{errors.amount.message}</p>
+        ) : null}
+      </div>
+      <div className="flex flex-col">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="size-5.5"
+          aria-label={`Move portion ${index + 1} up`}
+          disabled={index === 0}
+          onClick={() => onMove(index, index - 1)}
+        >
+          <ArrowUp className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="size-5.5"
+          aria-label={`Move portion ${index + 1} down`}
+          disabled={index === count - 1}
+          onClick={() => onMove(index, index + 1)}
+        >
+          <ArrowDown className="size-3.5" />
+        </Button>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={`Remove portion ${index + 1}`}
+        onClick={onRemove}
+      >
+        <Trash2 className="text-fg-muted size-4" />
+      </Button>
+    </Reorder.Item>
   );
 }
 

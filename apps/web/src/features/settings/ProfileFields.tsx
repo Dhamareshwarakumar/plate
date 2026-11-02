@@ -27,10 +27,11 @@ export function ProfileFields<T extends ProfileFormValues>({ form }: ProfileFiel
 
   return (
     <div className="grid grid-cols-2 gap-4">
-      <Field label="Sex" error={errors.sex?.message} className="col-span-2 sm:col-span-1">
-        {() => (
+      <Field label="Sex" group error={errors.sex?.message} className="col-span-2 sm:col-span-1">
+        {(c) => (
           <Segmented
-            aria-label="Sex"
+            aria-labelledby={c['aria-labelledby']}
+            aria-describedby={c['aria-describedby']}
             value={sex}
             onChange={(value) =>
               f.setValue('sex', value, { shouldDirty: true, shouldValidate: true })

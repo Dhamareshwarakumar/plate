@@ -1,14 +1,8 @@
 import { goalSchema, okResponseSchema, type Goal, type GoalInput } from '@plate/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { diaryKeys } from '@/features/today/api';
-import { weightKeys } from '@/features/weight/api';
 import { apiRequest } from '@/lib/api';
-
-export const goalKeys = {
-  all: ['goals'] as const,
-  list: ['goals', 'list'] as const,
-};
+import { diaryKeys, goalKeys, weightKeys } from '@/lib/query-keys';
 
 /** All goals, newest effective date first. */
 export function useGoals() {

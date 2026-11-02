@@ -8,17 +8,7 @@ import {
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiRequest } from '@/lib/api';
-
-export const insightsKeys = {
-  all: ['insights'] as const,
-  daily: (from: string, to: string) => ['insights', 'daily', { from, to }] as const,
-  summary: (from: string, to: string, today: string) =>
-    ['insights', 'summary', { from, to, today }] as const,
-  topFoods: (from: string, to: string) => ['insights', 'top-foods', { from, to }] as const,
-  bySlot: (from: string, to: string) => ['insights', 'by-slot', { from, to }] as const,
-  weightVsIntake: (from: string, to: string) =>
-    ['insights', 'weight-vs-intake', { from, to }] as const,
-};
+import { insightsKeys } from '@/lib/query-keys';
 
 /**
  * Insights are read-only and always refetched on mount (`staleTime: 0`, D104), so no other

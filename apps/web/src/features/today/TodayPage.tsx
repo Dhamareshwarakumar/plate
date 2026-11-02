@@ -169,10 +169,14 @@ function TodayView({ day }: { day: string }) {
           <DayHeader day={day} onNavigate={goTo} onLog={() => openLog()} />
         </div>
 
-        <DayStrip day={day} onNavigate={goTo} />
+        {/* The week strip (phones) and the month calendar (desktop) each fetch their own range of
+            logged days, so only the one that is shown is mounted. */}
+        {desktop ? null : <DayStrip day={day} onNavigate={goTo} />}
 
         <aside className="mt-3 flex flex-col gap-4 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-8 lg:mt-8">
-          <MiniCalendar day={day} onNavigate={goTo} className="hidden lg:block" />
+          {desktop ? (
+            <MiniCalendar day={day} onNavigate={goTo} className="hidden lg:block" />
+          ) : null}
           <FirstRunChecklist day={data} onLog={() => openLog()} />
           {dayQuery.isPending ? (
             <SummaryCardSkeleton />
@@ -215,7 +219,10 @@ function TodayView({ day }: { day: string }) {
           )}
         >
           {dayQuery.isPending ? (
-            <MealsSkeleton />
+            <>
+              <MealsSkeleton />
+              <WaterCardSkeleton className="lg:hidden" />
+            </>
           ) : dayQuery.isError ? (
             <div className="bg-surface border-border rounded-card border">
               <ErrorState
@@ -309,8 +316,10 @@ function TodayView({ day }: { day: string }) {
         <Plus className="size-7" />
       </button>
 
+      {/* Opens once the day (and so the meal list) is there, so a deep link does not show an empty
+          meal select for a moment (the goal editor waits for its list the same way, D68). */}
       <LogSheet
-        open={logOpen}
+        open={logOpen && !dayQuery.isPending}
         onClose={closeLog}
         day={day}
         slots={activeSlots}

@@ -33,7 +33,9 @@ export function AppShell() {
     setHelpOpen(true);
   };
 
-  // `?` lists the shortcuts (DESIGN §9); desktop only, like every other shortcut.
+  // `?` lists the shortcuts (DESIGN §9). Desktop only: the sheet documents the desktop bindings,
+  // and on-screen keyboards have no `?` worth catching. (The Today/Insights arrow and letter
+  // shortcuts are not gated; they are simply unreachable without a keyboard.)
   useKeyboardShortcuts({ '?': showHelp }, desktop);
 
   // When the element that had focus disappears with the previous page (an editor's close button,

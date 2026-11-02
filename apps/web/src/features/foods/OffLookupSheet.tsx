@@ -1,4 +1,4 @@
-import { roundNutrient, type OffResult } from '@plate/shared';
+import { OFF_QUERY_MAX, roundNutrient, type OffResult } from '@plate/shared';
 import { Globe, Search, SearchX, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,7 @@ function OffLookupSheetInner({ open, onOpenChange, initialQuery, onPick }: OffLo
               autoCorrect="off"
               inputMode="search"
               enterKeyHint="search"
+              maxLength={OFF_QUERY_MAX}
               className="pr-10 pl-10"
               data-autofocus
             />

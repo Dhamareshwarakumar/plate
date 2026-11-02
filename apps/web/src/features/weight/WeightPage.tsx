@@ -14,7 +14,8 @@ import { formatDayWithYear, todayKey } from '@/lib/dates';
 import { formatKg } from '@/lib/format';
 import { useDeleteWeight, useSaveWeight, useWeights, useWeightStats } from './api';
 import { WeightList } from './WeightList';
-import { WeightLogSheet, type WeightLogMode } from './WeightLogSheet';
+import { resolveLogMode } from './weight-log-mode';
+import { WeightLogSheet } from './WeightLogSheet';
 import { WeightStats } from './WeightStats';
 import { inRange, parseRange, rangeBounds, RANGE_OPTIONS, type WeightRange } from './weight-range';
 
@@ -80,13 +81,7 @@ export function WeightPage() {
     });
   };
 
-  const logMode: WeightLogMode =
-    logParam === null || logParam === 'new'
-      ? { kind: 'new' }
-      : (() => {
-          const existing = entries.find((w) => w.day === logParam);
-          return existing ? { kind: 'edit', weight: existing } : { kind: 'new', day: logParam };
-        })();
+  const logMode = resolveLogMode(logParam, entries);
 
   const pending = weights.isPending || stats.isPending;
   const error = weights.error ?? stats.error;

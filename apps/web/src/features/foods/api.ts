@@ -17,20 +17,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiRequest, ApiClientError } from '@/lib/api';
-
-export const foodKeys = {
-  all: ['foods'] as const,
-  list: (includeArchived: boolean) => ['foods', 'list', { includeArchived }] as const,
-  detail: (id: number) => ['foods', 'detail', id] as const,
-};
-export const categoryKeys = {
-  all: ['categories'] as const,
-  list: (includeArchived: boolean) => ['categories', 'list', { includeArchived }] as const,
-};
-export const offKeys = {
-  all: ['off'] as const,
-  lookup: (q: string) => ['off', 'lookup', q] as const,
-};
+import { categoryKeys, dishKeys, foodKeys, mealTemplateKeys, offKeys } from '@/lib/query-keys';
 
 // ---------- foods ----------
 
@@ -54,9 +41,18 @@ export function useFood(id: number | undefined) {
   });
 }
 
+/**
+ * Dishes and meal templates read their ingredients' and items' *current* values (name, per-100,
+ * archived state, the dish's stale flag), so every food write stales those caches as well.
+ */
 function useInvalidateFoods() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: foodKeys.all });
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: foodKeys.all }),
+      queryClient.invalidateQueries({ queryKey: dishKeys.all }),
+      queryClient.invalidateQueries({ queryKey: mealTemplateKeys.all }),
+    ]);
 }
 
 export function useCreateFood() {
