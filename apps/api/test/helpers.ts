@@ -22,6 +22,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     logLevel: 'silent',
     offLookupEnabled: true,
     offUserAgent: 'Plate/test',
+    pushVapidSubject: 'mailto:test@plate.test',
     ...overrides,
   };
 }

@@ -34,15 +34,26 @@ type Row = Record<string, unknown>;
 /** Rows per `JSON.stringify` call while streaming an export. */
 const CHUNK_ROWS = 500;
 
+/**
+ * Settings rows that belong to this server, not to the user's data: the Web Push VAPID key pair
+ * (`push.vapid`). They stay out of the JSON export (a secret in a file meant for cloud storage) and
+ * survive a restore (an older backup would otherwise orphan every enrolled device, whose
+ * subscriptions are bound to the current public key). The SQLite snapshot is a full copy and keeps them.
+ */
+const SERVER_SETTINGS_PREFIX = 'push.';
+const isServerSetting = (row: Row) =>
+  typeof row.key === 'string' && row.key.startsWith(SERVER_SETTINGS_PREFIX);
+
 /** Column list of a table, straight from the shared row schema (the test suite checks it against the DB). */
 function columnsOf(key: BackupDataKey): string[] {
   return Object.keys(backupDataSchema.shape[key].element.shape);
 }
 
 /**
- * Export, restore and snapshot of the whole database (FR-S4). Everything but `auth`, `sessions` and
- * SQLite's own `sqlite_sequence` is covered; a restore therefore keeps the password and every
- * signed-in device.
+ * Export, restore and snapshot of the whole database (FR-S4). Everything but `auth`, `sessions`,
+ * the push tables (`push_subscriptions`, `reminder_sends`), the `push.*` settings and SQLite's own
+ * `sqlite_sequence` is covered; a restore therefore keeps the password, every signed-in device and
+ * every device enrolled for reminders.
  */
 export class BackupService {
   private readonly db: Db;
@@ -66,7 +77,10 @@ export class BackupService {
       for (const key of BACKUP_TABLE_KEYS) {
         const table = BACKUP_TABLES[key];
         const orderBy = key === 'settings' ? 'key' : 'id';
-        out[key] = this.sqlite.prepare(`SELECT * FROM ${table} ORDER BY ${orderBy}`).all() as Row[];
+        const rows = this.sqlite
+          .prepare(`SELECT * FROM ${table} ORDER BY ${orderBy}`)
+          .all() as Row[];
+        out[key] = key === 'settings' ? rows.filter((row) => !isServerSetting(row)) : rows;
       }
       return out as Record<BackupDataKey, Row[]>;
     });
@@ -113,6 +127,12 @@ export class BackupService {
     try {
       return this.db.transaction(() => {
         for (const key of [...BACKUP_TABLE_KEYS].reverse()) {
+          if (key === 'settings') {
+            this.sqlite
+              .prepare(`DELETE FROM settings WHERE key NOT LIKE ?`)
+              .run(`${SERVER_SETTINGS_PREFIX}%`);
+            continue;
+          }
           this.sqlite.prepare(`DELETE FROM ${BACKUP_TABLES[key]}`).run();
         }
         const restored: Partial<Record<BackupDataKey, number>> = {};
@@ -123,7 +143,8 @@ export class BackupService {
               .map((c) => `@${c}`)
               .join(', ')})`,
           );
-          const rows = data[key] as unknown as Row[];
+          const all = data[key] as unknown as Row[];
+          const rows = key === 'settings' ? all.filter((row) => !isServerSetting(row)) : all;
           for (const row of rows) insert.run(row);
           restored[key] = rows.length;
         }

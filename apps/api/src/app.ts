@@ -23,6 +23,8 @@ import { InsightsService } from './insights/service.js';
 import { MealSlotService } from './mealSlots/service.js';
 import { MealTemplateService } from './mealTemplates/service.js';
 import { OffLookupService } from './off/service.js';
+import { PushService } from './push/service.js';
+import { ReminderService } from './reminders/service.js';
 import { aboutRoutes } from './routes/about.js';
 import { PASSWORD_THROTTLE, protectedAuthRoutes, publicAuthRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
@@ -36,6 +38,8 @@ import { insightsRoutes } from './routes/insights.js';
 import { mealSlotRoutes } from './routes/mealSlots.js';
 import { mealTemplateRoutes } from './routes/mealTemplates.js';
 import { offRoutes } from './routes/off.js';
+import { pushRoutes } from './routes/push.js';
+import { reminderRoutes } from './routes/reminders.js';
 import { settingsRoutes } from './routes/settings.js';
 import { waterRoutes } from './routes/water.js';
 import { weightRoutes } from './routes/weights.js';
@@ -54,7 +58,21 @@ export interface BuildAppOptions {
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
+/** The app plus the services server.ts needs outside request handling (the reminder scheduler). */
+export interface BuiltApp {
+  app: FastifyInstance;
+  services: {
+    reminders: ReminderService;
+    mealSlots: MealSlotService;
+    push: PushService;
+  };
+}
+
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
+  return (await buildAppWithServices(options)).app;
+}
+
+export async function buildAppWithServices(options: BuildAppOptions): Promise<BuiltApp> {
   const { config, db, sqlite } = options;
 
   const app = Fastify({
@@ -145,6 +163,14 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     userAgent: config.offUserAgent,
     logger: app.log,
   });
+  const pushService = new PushService(db, {
+    vapidSubject: config.pushVapidSubject,
+    logger: app.log,
+  });
+  const reminderService = new ReminderService(db, {
+    mealSlots: mealSlotService,
+    goals: goalService,
+  });
 
   await app.register(
     async (api) => {
@@ -183,6 +209,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
           offEnabled: config.offLookupEnabled,
         });
         await guarded.register(offRoutes, { off: offService });
+        await guarded.register(reminderRoutes, { reminders: reminderService });
+        await guarded.register(pushRoutes, { push: pushService });
       });
     },
     { prefix: '/api' },
@@ -203,7 +231,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     void reply.header('Cache-Control', 'no-cache').type('text/html').sendFile('index.html');
   });
 
-  return app;
+  return {
+    app,
+    services: { reminders: reminderService, mealSlots: mealSlotService, push: pushService },
+  };
 }
 
 async function registerWebApp(app: FastifyInstance, webDistDir: string): Promise<void> {

@@ -276,3 +276,44 @@ export const weights = sqliteTable(
   },
   (t) => [uniqueIndex('weights_day_unique').on(t.day)],
 );
+
+/**
+ * Web Push subscriptions (FR-N2), one per browser that enabled reminders. The endpoint is a
+ * capability URL issued by the push service; it is never logged in full. Rows are deleted when the
+ * push service answers 404/410, and `failures` counts other consecutive delivery errors.
+ */
+export const pushSubscriptions = sqliteTable(
+  'push_subscriptions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    /** "Chrome on Android", derived by the client. */
+    deviceLabel: text('device_label').notNull(),
+    /** IANA zone of the device when it subscribed. */
+    timezone: text('timezone').notNull(),
+    createdAt: text('created_at').notNull(),
+    /** Last successful delivery. */
+    lastUsedAt: text('last_used_at'),
+    failures: integer('failures').notNull().default(0),
+  },
+  (t) => [uniqueIndex('push_subscriptions_endpoint_unique').on(t.endpoint)],
+);
+
+/**
+ * Reminder ledger (FR-N3): one row per reminder per local day, written before the push goes out,
+ * so a reminder fires at most once a day however many scheduler ticks see it as due.
+ */
+export const reminderSends = sqliteTable(
+  'reminder_sends',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** `meal:<slotId>`, `weigh-in` or `water` (see `reminderKeys` in shared). */
+    reminderKey: text('reminder_key').notNull(),
+    /** `YYYY-MM-DD` in the configured reminder time zone. */
+    day: text('day').notNull(),
+    sentAt: text('sent_at').notNull(),
+  },
+  (t) => [uniqueIndex('reminder_sends_key_day_unique').on(t.reminderKey, t.day)],
+);

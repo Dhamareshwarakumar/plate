@@ -46,13 +46,17 @@ let oil: Food;
 
 type TableDump = Record<BackupDataKey, Record<string, unknown>[]>;
 
-/** Every backed-up table, raw rows in the export order. */
+/**
+ * Every backed-up table, raw rows in the export order. The `push.*` settings (the VAPID key pair the
+ * app creates on start) are server state, not user data, and stay out of the JSON backup.
+ */
 function dumpAll(sqlite: Database.Database = ctx.opened.sqlite): TableDump {
   const out: Partial<TableDump> = {};
   for (const key of BACKUP_TABLE_KEYS) {
+    const where = key === 'settings' ? "WHERE key NOT LIKE 'push.%'" : '';
     const orderBy = key === 'settings' ? 'key' : 'id';
     out[key] = sqlite
-      .prepare(`SELECT * FROM ${BACKUP_TABLES[key]} ORDER BY ${orderBy}`)
+      .prepare(`SELECT * FROM ${BACKUP_TABLES[key]} ${where} ORDER BY ${orderBy}`)
       .all() as Record<string, unknown>[];
   }
   return out as TableDump;
@@ -283,6 +287,42 @@ describe('GET /api/backup.json', () => {
     expect(raw).not.toHaveProperty('auth');
     expect(raw['data']).not.toHaveProperty('auth');
     expect(raw['data']).not.toHaveProperty('sessions');
+    expect(raw['data']).not.toHaveProperty('pushSubscriptions');
+  });
+
+  it('leaves the VAPID key pair out of the export and keeps it across a restore', async () => {
+    const vapidRow = () =>
+      ctx.opened.sqlite
+        .prepare("SELECT value_json FROM settings WHERE key = 'push.vapid'")
+        .get() as { value_json: string } | undefined;
+    const before = vapidRow();
+    expect(before).toBeDefined();
+    expect(JSON.parse(before!.value_json)).toMatchObject({
+      publicKey: expect.any(String) as string,
+      privateKey: expect.any(String) as string,
+    });
+
+    const backup = await exportBackup();
+    expect(backup.data.settings.some((s) => s.key.startsWith('push.'))).toBe(false);
+    expect(JSON.stringify(backup)).not.toContain(JSON.parse(before!.value_json).privateKey);
+
+    // A foreign `push.vapid` row in a backup is ignored too: this server's pair stays in force.
+    const tampered: Backup = {
+      ...backup,
+      data: {
+        ...backup.data,
+        settings: [
+          ...backup.data.settings,
+          { key: 'push.vapid', value_json: '{"publicKey":"x","privateKey":"y"}', updated_at: 'z' },
+        ],
+      },
+    };
+    const restored = await ok(restore(tampered));
+    expect(restored.json<RestoreResult>().restored.settings).toBe(backup.data.settings.length);
+    expect(vapidRow()).toEqual(before);
+    expect(
+      (await ok(api('GET', '/api/push/vapid-public-key'))).json<{ publicKey: string }>().publicKey,
+    ).toBe(JSON.parse(before!.value_json).publicKey);
   });
 
   it('keeps the row schemas in step with the database columns', () => {

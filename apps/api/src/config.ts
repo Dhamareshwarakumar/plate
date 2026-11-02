@@ -36,6 +36,14 @@ const envSchema = z.object({
   OFF_LOOKUP_ENABLED: booleanString.default(true),
   /** Identifies this install to Open Food Facts; defaults to `Plate/<version> (self-hosted diet ledger)`. */
   OFF_USER_AGENT: z.string().min(1).optional(),
+  /**
+   * VAPID "subject" sent to push services with every reminder (FR-N3): a `mailto:` address or an
+   * `https:` URL they could use to contact the operator. Any syntactically valid value works.
+   */
+  PUSH_VAPID_SUBJECT: z
+    .string()
+    .regex(/^(mailto:.+|https:\/\/.+)$/, 'must be a mailto: address or an https: URL')
+    .default('mailto:plate@localhost'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -55,6 +63,7 @@ export interface AppConfig {
   logLevel: Env['LOG_LEVEL'];
   offLookupEnabled: boolean;
   offUserAgent: string;
+  pushVapidSubject: string;
 }
 
 export class ConfigError extends Error {
@@ -102,5 +111,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     logLevel: env.LOG_LEVEL,
     offLookupEnabled: env.OFF_LOOKUP_ENABLED,
     offUserAgent: env.OFF_USER_AGENT ?? `Plate/${APP_VERSION} (self-hosted diet ledger)`,
+    pushVapidSubject: env.PUSH_VAPID_SUBJECT,
   };
 }

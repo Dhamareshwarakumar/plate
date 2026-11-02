@@ -43,6 +43,13 @@
       "when": 1793575170854,
       "tag": "0005_water_weights",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793619959994,
+      "tag": "0006_push_reminders",
+      "breakpoints": true
     }
   ]
 }
