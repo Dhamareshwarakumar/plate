@@ -338,3 +338,80 @@ mealTemplateItems, goals, diaryEntries, waterEntries, weights } }` (raw table ro
   `sqlite3 .backup`, upgrade, reset password, Caddy/HTTPS option); update TECH.md where reality
   differs; DECISIONS.md final deviations list; delete `PlaceholderPage` if still present.
 - Final: `pnpm check` green, `pnpm e2e` green, Docker smoke green, everything committed on `main`.
+
+---
+
+## Phase 10 — Follow-ups, barcode scanning, reminders (approved by the user after deployment)
+
+The app is deployed behind HTTPS (Nginx Proxy Manager → Pi) and installed as a PWA from Chrome; camera
+and push features therefore run in a secure context in production. Dev stays on `127.0.0.1` (also a
+secure context for these APIs).
+
+### 10a — Reviewer follow-ups
+Work through the non-blocking notes in `.agents/tasks/plate-phases/phase2-review.md` …
+`phase9-review.md`. Fix every note that describes a real defect or missing invalidation; for notes
+that are opinions, decide and record in DECISIONS.md. Known items: dish/meal-template query caches
+not invalidated by food mutations; food picker hides a templates-query error; meal-template name
+uniqueness only in the service (add 409 path + test); duplicate-item handling in editors;
+drag-to-reorder portions in the food editor (use `Reorder.Group`/`Reorder.Item` from `motion/react`,
+keyboard fallback with move up/down buttons kept for accessibility). Each fix gets a test where the
+code is testable.
+
+### 10b — Camera barcode scanning (extends FR-F5)
+- Web only; the API already has `GET off/product/:code` and stores `foods.off_code`.
+- `features/scan/`: `BarcodeScannerSheet` (full-height Sheet: live rear-camera preview via
+  `getUserMedia({ video: { facingMode: 'environment' } })`, viewfinder overlay, torch toggle when
+  `MediaTrackCapabilities.torch` exists, cancel). Detection: native `BarcodeDetector` when available
+  (`formats: ean_13, ean_8, upc_a, upc_e`); otherwise fall back to `zxing-wasm` (add as a dependency;
+  lazy-load the scanner chunk so the main bundle budget holds; justify in DECISIONS.md). Debounce:
+  require the same code twice in a row before accepting. Validate EAN/UPC check digits in
+  `lib/barcode.ts` (unit tests). States: requesting permission, denied (how to re-enable, per
+  browser), no camera, unsupported, scanning, found. Stop the stream on close.
+- Entry points: (1) food editor → "Search online" sheet gets a "Scan barcode" button → code → OFF
+  product → prefill (existing flow). (2) Log sheet step 1 gets a scan button: if a library food has
+  that `offCode`, jump straight to the quantity step; otherwise show the OFF product with "Add to
+  library and log" (creates the food via the existing create mutation, then continues to quantity);
+  if OFF has nothing, offer "Create food manually" with the code remembered. Lookup disabled → the
+  scan button still matches library foods, and explains that online lookup is off.
+- Tests: `lib/barcode.ts` unit tests; component tests with a mocked detector/stream for the state
+  machine; screenshots of the sheet states (camera mocked with a canvas stream in Playwright).
+
+### 10c — Reminders via Web Push (new requirement FR-N)
+- **FR-N1** Reminders are configured in More → Reminders: master switch; per active meal slot a
+  time (default: the slot's window end) and "only if nothing is logged in this meal"; a weigh-in
+  reminder time (default 07:30, only if no weight today); optional water nudge at a time if below
+  goal. Quiet hours not needed in v1.
+- **FR-N2** Devices opt in individually ("Enable on this device": asks notification permission,
+  subscribes, shows the device in a list with a label like "Chrome on Android" and a remove button).
+  "Send test notification" button. Explain that iPhones need the app installed to the Home Screen.
+- **FR-N3** Delivery uses the browser's Web Push service (the only way to notify a closed PWA).
+  Payloads are generic ("Dinner not logged yet" / "Time to weigh in"); no nutrition data. This is
+  a documented exception to "no outbound calls" alongside Open Food Facts; record it in TECH.md §7
+  and README.
+- API: dependency `web-push` (justify in DECISIONS.md). VAPID key pair generated on first start and
+  stored in `settings` (`push.vapid`), public key served by `GET push/vapid-public-key`. Tables
+  `push_subscriptions(id, endpoint unique, p256dh, auth, device_label, timezone, created_at,
+  last_used_at, failures)` and `reminder_sends(id, reminder_key, day, sent_at)` (one send per
+  reminder per local day); migration `0006_push_reminders`. Reminder config in `settings`
+  (`reminders`), zod schema in shared (`reminders.ts`, with `timezone` as an IANA string validated
+  via `Intl.supportedValuesOf('timeZone')` fallback to try/catch `Intl.DateTimeFormat`). Routes:
+  `GET/PUT reminders`, `GET/POST/DELETE push/subscriptions`, `POST push/test`. Scheduler: a
+  `ReminderScheduler` ticking every 60 s (started in server.ts, not in tests), computing the local
+  time in the stored timezone, firing due reminders that have no `reminder_sends` row for that local
+  day and whose "only if empty" condition holds, sending to every subscription, deleting
+  subscriptions that return 404/410, counting other failures. Pure "is due" logic in shared with
+  unit tests (DST day, midnight wrap, already sent, condition false). API tests with `web-push`
+  mocked (`vi.mock`).
+- Web: switch vite-plugin-pwa to `strategies: 'injectManifest'` with `src/sw.ts` keeping the
+  current precache/navigation behaviour (`precacheAndRoute(self.__WB_MANIFEST)`, navigation
+  fallback with the `/api/` denylist, `cleanupOutdatedCaches`) and adding `push` (show notification
+  with title/body/icon/badge from the payload, `tag` per reminder so repeats replace) and
+  `notificationclick` (focus or open `/today`) handlers. `features/reminders/`: settings page,
+  `usePushSubscription` (permission state, subscribe with the VAPID key via
+  `registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`, unsubscribe),
+  device list. Register the route under More → Reminders. Screenshots of the page states.
+- README: short "Reminders" section (how to enable per device, iOS note, what leaves the Pi).
+
+### Definition of done for Phase 10
+Same as AGENTS.md: `pnpm check` green, `pnpm e2e` green, screenshots inspected, docs/DECISIONS
+updated, committed on `main`, and `git push origin main` at the end (the user deploys from GitHub).
