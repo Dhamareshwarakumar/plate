@@ -85,7 +85,9 @@ export function DevicesCard() {
           busy={push.busy}
           testing={test.isPending}
           onEnable={() => void onEnable()}
-          onDisable={() => (thisDevice ? void onDisable(thisDevice) : undefined)}
+          onDisable={() => {
+            if (thisDevice) void onDisable(thisDevice);
+          }}
           onTest={onTest}
           onRecheck={push.recheck}
         />

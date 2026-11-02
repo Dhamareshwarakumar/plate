@@ -157,7 +157,11 @@ export class PushService {
             .where(eq(pushSubscriptions.endpoint, options.endpoint))
             .all();
     if (rows.length === 0) {
-      throw new AppError(404, 'NOT_FOUND', 'No device is enabled for reminders');
+      throw new AppError(
+        404,
+        'NOT_FOUND',
+        options.endpoint === undefined ? 'No device is enabled for reminders' : 'Device not found',
+      );
     }
 
     const body = JSON.stringify(payload);

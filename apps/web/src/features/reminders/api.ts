@@ -63,21 +63,15 @@ const fetchVapidPublicKey = (signal?: AbortSignal) =>
     ...(signal ? { signal } : {}),
   });
 
-/** The server's VAPID public key, needed once per subscribe; it never changes while the server runs. */
-export function useVapidPublicKey() {
-  return useQuery({
-    queryKey: pushKeys.vapid,
-    queryFn: ({ signal }) => fetchVapidPublicKey(signal),
-    staleTime: Infinity,
-  });
-}
-
-/** Imperative variant for the subscribe flow (it runs inside a click handler, not a render). */
+/**
+ * The server's VAPID public key, fetched inside the subscribe flow (a click handler, not a render)
+ * and cached for the session: it never changes while the server runs.
+ */
 export function loadVapidPublicKey(queryClient: QueryClient): Promise<string> {
   return queryClient
     .fetchQuery({
       queryKey: pushKeys.vapid,
-      queryFn: () => fetchVapidPublicKey(),
+      queryFn: ({ signal }) => fetchVapidPublicKey(signal),
       staleTime: Infinity,
     })
     .then((r) => r.publicKey);

@@ -202,7 +202,15 @@ describe('POST /api/push/test', () => {
     await enrol();
     res = await api('POST', '/api/push/test', { endpoint: 'https://push.example/unknown' });
     expect(res.statusCode).toBe(404);
+    expect(res.json<ApiError>().error.message).toBe('Device not found');
     expect(mocks.sendNotification).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-string endpoint with path endpoint', async () => {
+    const res = await api('POST', '/api/push/test', { endpoint: 123 });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<ApiError>().error.code).toBe('VALIDATION_ERROR');
+    expect(paths(res)).toEqual(['endpoint']);
   });
 
   it('sends an encrypted generic payload with VAPID, high urgency and a short TTL, then marks the device used', async () => {
