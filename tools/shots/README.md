@@ -80,3 +80,27 @@ mocked inside the app), and the disabled state from a mocked `/api/about` with `
 saves the prefilled "Twix glacé" through the editor, checks `source`/`offCode` on the server, and
 deletes that food again. The one `Failed to load resource: ... 502` console line comes from the mocked
 upstream error and is expected.
+
+```sh
+SKIP_BUILD=1 node tools/shots/phase9-polish.mjs   # shortcuts help (desktop light + dark), focus ring back on "Log food" after Escape, "Can't reach Plate" (phone dark + desktop), Today cold-load skeleton, "update available" toast (phone dark + desktop light) + Update reload
+```
+
+`phase9-polish.mjs` runs the first four groups against the dev servers. The update toast needs a real
+service worker, which only the production build registers, so the script also starts a throw-away
+production API on a free port serving a **copy** of `apps/web/dist` (temp database, password
+`password`), waits for the worker to control the page, appends a comment to the copy's `sw.js`, calls
+`registration.update()` and screenshots the toast; it then presses **Update** and logs whether the page
+reloaded. Without `SKIP_BUILD=1` it runs `pnpm -r build` first. The `net::ERR_CONNECTION_FAILED`
+console lines come from the aborted requests of the unreachable-shell shots and are expected.
+
+```sh
+SKIP_BUILD=1 node tools/shots/phase9-states.mjs   # empty / loading / error audit of every screen (phone), Today/Foods/Insights also on desktop, unreachable shell, login error, 404; ~55 PNGs
+```
+
+`phase9-states.mjs` never touches the dev database: it starts its own production API with a fresh
+temp database, logs in once and reuses the cookie. "Loading" holds every `/api` request except the
+session probe open (`page.route` without a response); "error" aborts them. It seeds one food, one dish
+and one meal template at the end for the existing-item editors, prints `MISSING RETRY on <screen>` if
+an error state has no Try again button, and uses a 2× device scale factor to keep the files small.
+Only `net::ERR_FAILED` console lines are expected. The table of what each screen shows per state is in
+DECISIONS.md (Phase 9 section).
