@@ -38,10 +38,13 @@ describe('static web app serving', () => {
 
     const csp = String(res.headers['content-security-policy']);
     expect(csp).toContain("default-src 'self'");
-    expect(csp).toContain("script-src 'self'");
-    // Inline scripts stay forbidden; that is why the theme bootstrap is an external file.
-    const scriptSrc = /script-src ([^;]*)/.exec(csp)?.[1] ?? '';
-    expect(scriptSrc).not.toContain('unsafe-inline');
+    expect(csp).toContain("connect-src 'self'");
+    // Inline scripts and eval stay forbidden; that is why the theme bootstrap is an external file.
+    // The only extra script source is WebAssembly compilation for the barcode scanner (D163).
+    const scriptSrc = (/script-src ([^;]*)/.exec(csp)?.[1] ?? '').trim().split(/\s+/);
+    expect(scriptSrc).toEqual(["'self'", "'wasm-unsafe-eval'"]);
+    expect(scriptSrc).not.toContain("'unsafe-inline'");
+    expect(scriptSrc).not.toContain("'unsafe-eval'");
   });
 
   it('serves content-hashed assets as immutable for a year', async () => {

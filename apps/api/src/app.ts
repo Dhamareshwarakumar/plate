@@ -85,7 +85,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       useDefaults: false,
       directives: {
         'default-src': ["'self'"],
-        'script-src': ["'self'"],
+        // 'wasm-unsafe-eval' (CSP3) lets the browser compile WebAssembly, which the barcode
+        // scanner's zxing-wasm fallback needs where there is no native BarcodeDetector (D163). It
+        // does not permit eval()/new Function(); the .wasm bytes come from this origin only
+        // (connect-src 'self'). Inline scripts stay forbidden.
+        'script-src': ["'self'", "'wasm-unsafe-eval'"],
         'style-src': ["'self'", "'unsafe-inline'"],
         'img-src': ["'self'", 'data:', 'blob:'],
         'font-src': ["'self'"],
