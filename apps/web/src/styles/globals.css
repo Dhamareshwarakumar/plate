@@ -114,6 +114,13 @@
     touch-action: manipulation;
   }
 
+  /* Search boxes render their own clear button; the WebKit one would sit right next to it. */
+  input[type='search']::-webkit-search-cancel-button,
+  input[type='search']::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;

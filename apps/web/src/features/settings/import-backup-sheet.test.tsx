@@ -10,6 +10,7 @@ const about = {
   dbSizeBytes: 282_624,
   dbPath: 'plate.db',
   counts: { foods: 23, entries: 334, days: 31 },
+  offEnabled: true,
 };
 
 const validBackup = () => ({

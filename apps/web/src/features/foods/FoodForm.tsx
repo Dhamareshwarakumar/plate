@@ -1,8 +1,9 @@
-import { checkMacroSanity, type Category, type Food } from '@plate/shared';
+import { checkMacroSanity, type Category, type Food, type OffResult } from '@plate/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ChevronDown, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Globe, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Controller, useFieldArray, useForm, type UseFormReturn } from 'react-hook-form';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,14 @@ import { NumberField, parseDecimal } from '@/components/ui/number-field';
 import { Segmented } from '@/components/ui/segmented';
 import { Select } from '@/components/ui/select';
 import { cn } from '@/lib/cn';
-import { EMPTY_FOOD_FORM, foodFormSchema, fromFood, type FoodFormValues } from './food-form-schema';
+import {
+  EMPTY_FOOD_FORM,
+  foodFormSchema,
+  fromFood,
+  offResultToFormValues,
+  type FoodFormValues,
+} from './food-form-schema';
+import { OffLookupSheet } from './OffLookupSheet';
 
 export interface FoodFormProps {
   food?: Food | undefined;
@@ -26,6 +34,8 @@ export interface FoodFormProps {
   secondaryActions?: React.ReactNode;
   /** Hidden when the editor was opened from the log flow (one food, then back to the diary). */
   hideSaveAndAdd?: boolean;
+  /** Shows "Search online" (FR-F5); false when the deployment disabled the Open Food Facts proxy. */
+  offEnabled?: boolean;
 }
 
 export function FoodForm({
@@ -38,6 +48,7 @@ export function FoodForm({
   mode,
   secondaryActions,
   hideSaveAndAdd = false,
+  offEnabled = false,
 }: FoodFormProps) {
   const form = useForm<FoodFormValues>({
     resolver: zodResolver(foodFormSchema),
@@ -58,8 +69,22 @@ export function FoodForm({
   );
 
   const basis = form.watch('basis');
+  const offCode = form.watch('offCode');
   const [kcal, protein, carbs, fat] = form.watch(['kcal', 'protein', 'carbs', 'fat']);
   const sanity = sanityHint({ kcal, protein, carbs, fat });
+  const [lookupOpen, setLookupOpen] = useState(false);
+
+  /** Overwrites name, brand and every nutrition field; category, basis and portions stay as set. */
+  const applyOffResult = (result: OffResult) => {
+    // reset() rather than setValue() so stale field errors from a previous attempt are cleared too.
+    form.reset(
+      { ...form.getValues(), ...offResultToFormValues(result) },
+      { keepDefaultValues: true },
+    );
+    const { fiber, sugar, saturatedFat, sodiumMg } = result.per100;
+    if ([fiber, sugar, saturatedFat, sodiumMg].some((v) => v !== null)) setMoreOpen(true);
+    toast.success(`Prefilled from ${result.name}`);
+  };
 
   const submit = (intent: 'save' | 'save-and-add') =>
     form.handleSubmit(async (values) => {
@@ -73,297 +98,329 @@ export function FoodForm({
   const errors = form.formState.errors;
 
   return (
-    <form onSubmit={submit('save')} noValidate className="flex flex-col gap-6">
-      <section className="flex flex-col gap-4">
-        <h3 className="text-fg-muted text-xs font-semibold tracking-wide uppercase">Basics</h3>
-        <Field label="Name" error={errors.name?.message}>
-          {(c) => (
-            <Input
-              id={c.id}
-              aria-describedby={c['aria-describedby']}
-              invalid={c.invalid}
-              autoComplete="off"
-              enterKeyHint="next"
-              {...form.register('name')}
-            />
-          )}
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Brand" description="Optional" error={errors.brand?.message}>
+    <>
+      <form onSubmit={submit('save')} noValidate className="flex flex-col gap-6">
+        <section className="flex flex-col gap-4">
+          <h3 className="text-fg-muted text-xs font-semibold tracking-wide uppercase">Basics</h3>
+          <Field label="Name" error={errors.name?.message}>
             {(c) => (
               <Input
                 id={c.id}
                 aria-describedby={c['aria-describedby']}
                 invalid={c.invalid}
                 autoComplete="off"
-                {...form.register('brand')}
+                enterKeyHint="next"
+                {...form.register('name')}
               />
             )}
           </Field>
-          <Field label="Category" error={errors.categoryId?.message}>
-            {(c) => (
-              <Select
-                id={c.id}
-                aria-describedby={c['aria-describedby']}
-                invalid={c.invalid}
-                {...form.register('categoryId')}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Brand" description="Optional" error={errors.brand?.message}>
+              {(c) => (
+                <Input
+                  id={c.id}
+                  aria-describedby={c['aria-describedby']}
+                  invalid={c.invalid}
+                  autoComplete="off"
+                  {...form.register('brand')}
+                />
+              )}
+            </Field>
+            <Field label="Category" error={errors.categoryId?.message}>
+              {(c) => (
+                <Select
+                  id={c.id}
+                  aria-describedby={c['aria-describedby']}
+                  invalid={c.invalid}
+                  {...form.register('categoryId')}
+                >
+                  <option value="">No category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-fg text-sm font-medium">Measured per 100</span>
+            <Controller
+              control={form.control}
+              name="basis"
+              render={({ field }) => (
+                <Segmented
+                  aria-label="Unit"
+                  value={field.value}
+                  onChange={field.onChange}
+                  className="max-w-xs"
+                  options={[
+                    { value: 'g', label: 'grams (g)' },
+                    { value: 'ml', label: 'millilitres (ml)' },
+                  ]}
+                />
+              )}
+            />
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-fg-muted text-xs font-semibold tracking-wide uppercase">
+                Nutrition per 100 {basis}
+              </h3>
+              <p className="text-fg-muted mt-1 text-sm">
+                Copy the "per 100 {basis}" column from the label.
+              </p>
+            </div>
+            {offEnabled ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setLookupOpen(true)}
               >
-                <option value="">No category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-fg text-sm font-medium">Measured per 100</span>
-          <Controller
-            control={form.control}
-            name="basis"
-            render={({ field }) => (
-              <Segmented
-                aria-label="Unit"
-                value={field.value}
-                onChange={field.onChange}
-                className="max-w-xs"
-                options={[
-                  { value: 'g', label: 'grams (g)' },
-                  { value: 'ml', label: 'millilitres (ml)' },
-                ]}
-              />
-            )}
-          />
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <div>
-          <h3 className="text-fg-muted text-xs font-semibold tracking-wide uppercase">
-            Nutrition per 100 {basis}
-          </h3>
-          <p className="text-fg-muted mt-1 text-sm">
-            Copy the "per 100 {basis}" column from the label.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Calories" error={errors.kcal?.message}>
-            {(c) => (
-              <NumberField
-                id={c.id}
-                aria-describedby={c['aria-describedby']}
-                invalid={c.invalid}
-                suffix="kcal"
-                enterKeyHint="next"
-                {...form.register('kcal')}
-              />
-            )}
-          </Field>
-          <Field label="Protein" error={errors.protein?.message}>
-            {(c) => (
-              <NumberField
-                id={c.id}
-                aria-describedby={c['aria-describedby']}
-                invalid={c.invalid}
-                suffix="g"
-                enterKeyHint="next"
-                {...form.register('protein')}
-              />
-            )}
-          </Field>
-          <Field label="Carbs" error={errors.carbs?.message}>
-            {(c) => (
-              <NumberField
-                id={c.id}
-                aria-describedby={c['aria-describedby']}
-                invalid={c.invalid}
-                suffix="g"
-                enterKeyHint="next"
-                {...form.register('carbs')}
-              />
-            )}
-          </Field>
-          <Field label="Fat" error={errors.fat?.message}>
-            {(c) => (
-              <NumberField
-                id={c.id}
-                aria-describedby={c['aria-describedby']}
-                invalid={c.invalid}
-                suffix="g"
-                enterKeyHint="next"
-                {...form.register('fat')}
-              />
-            )}
-          </Field>
-        </div>
-        {sanity ? (
-          <p
-            role={sanity.warn ? 'alert' : undefined}
-            className={cn(
-              'rounded-control px-3 py-2 text-sm',
-              sanity.warn ? 'bg-under/10 text-under' : 'bg-surface-2 text-fg-muted',
-            )}
-          >
-            {sanity.text}
-          </p>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={() => setMoreOpen((v) => !v)}
-          aria-expanded={moreOpen}
-          className="text-accent flex items-center gap-1 self-start text-sm font-medium"
-        >
-          <ChevronDown
-            className={cn('size-4 transition-transform', moreOpen && 'rotate-180')}
-            aria-hidden="true"
-          />
-          {moreOpen ? 'Fewer nutrients' : 'More nutrients (fiber, sugar, saturated fat, sodium)'}
-        </button>
-        {moreOpen ? (
+                <Globe className="size-4" aria-hidden="true" />
+                Search online
+              </Button>
+            ) : null}
+          </div>
+          {offCode !== '' ? (
+            <p className="text-fg-muted -mt-1 flex items-center gap-1.5 text-xs">
+              <Globe className="text-accent size-3.5 shrink-0" aria-hidden="true" />
+              Prefilled from Open Food Facts · barcode {offCode}
+            </p>
+          ) : null}
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Fiber" error={errors.fiber?.message}>
+            <Field label="Calories" error={errors.kcal?.message}>
+              {(c) => (
+                <NumberField
+                  id={c.id}
+                  aria-describedby={c['aria-describedby']}
+                  invalid={c.invalid}
+                  suffix="kcal"
+                  enterKeyHint="next"
+                  {...form.register('kcal')}
+                />
+              )}
+            </Field>
+            <Field label="Protein" error={errors.protein?.message}>
               {(c) => (
                 <NumberField
                   id={c.id}
                   aria-describedby={c['aria-describedby']}
                   invalid={c.invalid}
                   suffix="g"
-                  {...form.register('fiber')}
+                  enterKeyHint="next"
+                  {...form.register('protein')}
                 />
               )}
             </Field>
-            <Field label="Sugar" error={errors.sugar?.message}>
+            <Field label="Carbs" error={errors.carbs?.message}>
               {(c) => (
                 <NumberField
                   id={c.id}
                   aria-describedby={c['aria-describedby']}
                   invalid={c.invalid}
                   suffix="g"
-                  {...form.register('sugar')}
+                  enterKeyHint="next"
+                  {...form.register('carbs')}
                 />
               )}
             </Field>
-            <Field label="Saturated fat" error={errors.saturatedFat?.message}>
+            <Field label="Fat" error={errors.fat?.message}>
               {(c) => (
                 <NumberField
                   id={c.id}
                   aria-describedby={c['aria-describedby']}
                   invalid={c.invalid}
                   suffix="g"
-                  {...form.register('saturatedFat')}
-                />
-              )}
-            </Field>
-            <Field label="Sodium" error={errors.sodiumMg?.message}>
-              {(c) => (
-                <NumberField
-                  id={c.id}
-                  aria-describedby={c['aria-describedby']}
-                  invalid={c.invalid}
-                  suffix="mg"
-                  {...form.register('sodiumMg')}
+                  enterKeyHint="next"
+                  {...form.register('fat')}
                 />
               )}
             </Field>
           </div>
-        ) : null}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div>
-          <h3 className="text-fg-muted text-xs font-semibold tracking-wide uppercase">Portions</h3>
-          <p className="text-fg-muted mt-1 text-sm">
-            Shortcuts for logging, like "1 medium = 118 {basis}". The diary always stores {basis}.
-          </p>
-        </div>
-        {portions.fields.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {portions.fields.map((field, index) => {
-              const rowErrors = errors.portions?.[index];
-              return (
-                <li
-                  key={field.id}
-                  className="grid grid-cols-[auto_1fr_7rem_auto] items-start gap-2"
-                >
-                  <span className="text-fg-faint flex h-11 items-center" aria-hidden="true">
-                    <GripVertical className="size-4" />
-                  </span>
-                  <div>
-                    <Input
-                      aria-label={`Portion ${index + 1} label`}
-                      placeholder="1 medium"
-                      invalid={Boolean(rowErrors?.label)}
-                      {...form.register(`portions.${index}.label`)}
-                    />
-                    {rowErrors?.label ? (
-                      <p className="text-danger mt-1 text-xs">{rowErrors.label.message}</p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <NumberField
-                      aria-label={`Portion ${index + 1} amount in ${basis}`}
-                      placeholder="118"
-                      suffix={basis}
-                      invalid={Boolean(rowErrors?.amount)}
-                      {...form.register(`portions.${index}.amount`)}
-                    />
-                    {rowErrors?.amount ? (
-                      <p className="text-danger mt-1 text-xs">{rowErrors.amount.message}</p>
-                    ) : null}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove portion ${index + 1}`}
-                    onClick={() => portions.remove(index)}
-                  >
-                    <Trash2 className="text-fg-muted size-4" />
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-        {(errors.portions?.root?.message ?? errors.portions?.message) ? (
-          <p className="text-danger text-sm">
-            {errors.portions.root?.message ?? errors.portions.message}
-          </p>
-        ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="self-start"
-          onClick={() => portions.append({ label: '', amount: '' })}
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          Add portion
-        </Button>
-      </section>
-
-      <div className="border-border flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2">{secondaryActions}</div>
-        <div className="flex flex-col-reverse gap-2 sm:flex-row">
-          {mode === 'create' && !hideSaveAndAdd ? (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void submit('save-and-add')()}
-              disabled={submitting}
+          {sanity ? (
+            <p
+              role={sanity.warn ? 'alert' : undefined}
+              className={cn(
+                'rounded-control px-3 py-2 text-sm',
+                sanity.warn ? 'bg-under/10 text-under' : 'bg-surface-2 text-fg-muted',
+              )}
             >
-              Save &amp; add another
-            </Button>
+              {sanity.text}
+            </p>
           ) : null}
-          <Button type="submit" loading={submitting}>
-            {mode === 'create' ? 'Save food' : 'Save changes'}
+
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-expanded={moreOpen}
+            className="text-accent flex items-center gap-1 self-start text-sm font-medium"
+          >
+            <ChevronDown
+              className={cn('size-4 transition-transform', moreOpen && 'rotate-180')}
+              aria-hidden="true"
+            />
+            {moreOpen ? 'Fewer nutrients' : 'More nutrients (fiber, sugar, saturated fat, sodium)'}
+          </button>
+          {moreOpen ? (
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Fiber" error={errors.fiber?.message}>
+                {(c) => (
+                  <NumberField
+                    id={c.id}
+                    aria-describedby={c['aria-describedby']}
+                    invalid={c.invalid}
+                    suffix="g"
+                    {...form.register('fiber')}
+                  />
+                )}
+              </Field>
+              <Field label="Sugar" error={errors.sugar?.message}>
+                {(c) => (
+                  <NumberField
+                    id={c.id}
+                    aria-describedby={c['aria-describedby']}
+                    invalid={c.invalid}
+                    suffix="g"
+                    {...form.register('sugar')}
+                  />
+                )}
+              </Field>
+              <Field label="Saturated fat" error={errors.saturatedFat?.message}>
+                {(c) => (
+                  <NumberField
+                    id={c.id}
+                    aria-describedby={c['aria-describedby']}
+                    invalid={c.invalid}
+                    suffix="g"
+                    {...form.register('saturatedFat')}
+                  />
+                )}
+              </Field>
+              <Field label="Sodium" error={errors.sodiumMg?.message}>
+                {(c) => (
+                  <NumberField
+                    id={c.id}
+                    aria-describedby={c['aria-describedby']}
+                    invalid={c.invalid}
+                    suffix="mg"
+                    {...form.register('sodiumMg')}
+                  />
+                )}
+              </Field>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <div>
+            <h3 className="text-fg-muted text-xs font-semibold tracking-wide uppercase">
+              Portions
+            </h3>
+            <p className="text-fg-muted mt-1 text-sm">
+              Shortcuts for logging, like "1 medium = 118 {basis}". The diary always stores {basis}.
+            </p>
+          </div>
+          {portions.fields.length > 0 ? (
+            <ul className="flex flex-col gap-2">
+              {portions.fields.map((field, index) => {
+                const rowErrors = errors.portions?.[index];
+                return (
+                  <li
+                    key={field.id}
+                    className="grid grid-cols-[auto_1fr_7rem_auto] items-start gap-2"
+                  >
+                    <span className="text-fg-faint flex h-11 items-center" aria-hidden="true">
+                      <GripVertical className="size-4" />
+                    </span>
+                    <div>
+                      <Input
+                        aria-label={`Portion ${index + 1} label`}
+                        placeholder="1 medium"
+                        invalid={Boolean(rowErrors?.label)}
+                        {...form.register(`portions.${index}.label`)}
+                      />
+                      {rowErrors?.label ? (
+                        <p className="text-danger mt-1 text-xs">{rowErrors.label.message}</p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <NumberField
+                        aria-label={`Portion ${index + 1} amount in ${basis}`}
+                        placeholder="118"
+                        suffix={basis}
+                        invalid={Boolean(rowErrors?.amount)}
+                        {...form.register(`portions.${index}.amount`)}
+                      />
+                      {rowErrors?.amount ? (
+                        <p className="text-danger mt-1 text-xs">{rowErrors.amount.message}</p>
+                      ) : null}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove portion ${index + 1}`}
+                      onClick={() => portions.remove(index)}
+                    >
+                      <Trash2 className="text-fg-muted size-4" />
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+          {(errors.portions?.root?.message ?? errors.portions?.message) ? (
+            <p className="text-danger text-sm">
+              {errors.portions.root?.message ?? errors.portions.message}
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="self-start"
+            onClick={() => portions.append({ label: '', amount: '' })}
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            Add portion
           </Button>
+        </section>
+
+        <div className="border-border flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-2">{secondaryActions}</div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            {mode === 'create' && !hideSaveAndAdd ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void submit('save-and-add')()}
+                disabled={submitting}
+              >
+                Save &amp; add another
+              </Button>
+            ) : null}
+            <Button type="submit" loading={submitting}>
+              {mode === 'create' ? 'Save food' : 'Save changes'}
+            </Button>
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+      {offEnabled ? (
+        <OffLookupSheet
+          open={lookupOpen}
+          onOpenChange={setLookupOpen}
+          initialQuery={form.getValues('name')}
+          onPick={applyOffResult}
+        />
+      ) : null}
+    </>
   );
 }
 

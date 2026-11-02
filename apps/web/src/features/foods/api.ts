@@ -3,12 +3,16 @@ import {
   foodListSchema,
   foodSchema,
   importResultSchema,
+  isOffBarcode,
+  offResultSchema,
+  offSearchResponseSchema,
   okResponseSchema,
   type Category,
   type Food,
   type FoodInput,
   type ImportConflictStrategy,
   type ImportResult,
+  type OffResult,
 } from '@plate/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -22,6 +26,10 @@ export const foodKeys = {
 export const categoryKeys = {
   all: ['categories'] as const,
   list: (includeArchived: boolean) => ['categories', 'list', { includeArchived }] as const,
+};
+export const offKeys = {
+  all: ['off'] as const,
+  lookup: (q: string) => ['off', 'lookup', q] as const,
 };
 
 // ---------- foods ----------
@@ -132,6 +140,37 @@ export function useImportFoods() {
     onSuccess: (result) => {
       if (!result.dryRun) void invalidate();
     },
+  });
+}
+
+// ---------- Open Food Facts lookup (FR-F5) ----------
+
+/**
+ * One explicit lookup per submitted query: a barcode (8–14 digits) goes to the product route, text
+ * to search. The server does the upstream call; an unknown barcode is an empty result, not an error.
+ */
+export function useOffLookup(query: string) {
+  const q = query.trim();
+  return useQuery({
+    queryKey: offKeys.lookup(q),
+    queryFn: async ({ signal }): Promise<OffResult[]> => {
+      if (isOffBarcode(q)) {
+        try {
+          return [await apiRequest(`/off/product/${q}`, { schema: offResultSchema, signal })];
+        } catch (err) {
+          if (err instanceof ApiClientError && err.status === 404) return [];
+          throw err;
+        }
+      }
+      const result = await apiRequest(`/off/search?q=${encodeURIComponent(q)}`, {
+        schema: offSearchResponseSchema,
+        signal,
+      });
+      return result.items;
+    },
+    enabled: q.length >= 2,
+    staleTime: 10 * 60 * 1000,
+    retry: false,
   });
 }
 

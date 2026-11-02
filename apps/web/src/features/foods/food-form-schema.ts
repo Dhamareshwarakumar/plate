@@ -5,6 +5,7 @@ import {
   PORTIONS_MAX,
   type Food,
   type FoodInput,
+  type OffResult,
 } from '@plate/shared';
 import { z } from 'zod';
 import { parseDecimal } from '@/components/ui/number-field';
@@ -66,6 +67,8 @@ export const foodFormSchema = z.object({
       }),
     )
     .max(PORTIONS_MAX, `At most ${PORTIONS_MAX} portions`),
+  /** Open Food Facts code of the result that prefilled the form; '' = none. Never rendered as an input. */
+  offCode: z.string(),
 });
 export type FoodFormValues = z.infer<typeof foodFormSchema>;
 
@@ -83,6 +86,7 @@ export const EMPTY_FOOD_FORM: FoodFormValues = {
   saturatedFat: '',
   sodiumMg: '',
   portions: [],
+  offCode: '',
 };
 
 const num = (raw: string): number => parseDecimal(raw) ?? 0;
@@ -109,6 +113,7 @@ export function toFoodInput(values: FoodFormValues): FoodInput {
       sodiumMg: optionalNum(values.sodiumMg),
     },
     portions: values.portions.map((p) => ({ label: p.label, amount: num(p.amount) })),
+    offCode: values.offCode === '' ? null : values.offCode,
   };
 }
 
@@ -127,6 +132,39 @@ export function fromFood(food: Food): FoodFormValues {
     saturatedFat: fmt(food.per100.saturatedFat),
     sodiumMg: fmt(food.per100.sodiumMg),
     portions: food.portions.map((p) => ({ label: p.label, amount: String(p.amount) })),
+    offCode: food.offCode ?? '',
+  };
+}
+
+export type OffPrefill = Pick<
+  FoodFormValues,
+  | 'name'
+  | 'brand'
+  | 'kcal'
+  | 'protein'
+  | 'carbs'
+  | 'fat'
+  | 'fiber'
+  | 'sugar'
+  | 'saturatedFat'
+  | 'sodiumMg'
+  | 'offCode'
+>;
+
+/** The fields a picked Open Food Facts result overwrites (FR-F5); category, basis and portions stay. */
+export function offResultToFormValues(result: OffResult): OffPrefill {
+  return {
+    name: result.name,
+    brand: result.brand ?? '',
+    kcal: fmt(result.per100.kcal),
+    protein: fmt(result.per100.protein),
+    carbs: fmt(result.per100.carbs),
+    fat: fmt(result.per100.fat),
+    fiber: fmt(result.per100.fiber),
+    sugar: fmt(result.per100.sugar),
+    saturatedFat: fmt(result.per100.saturatedFat),
+    sodiumMg: fmt(result.per100.sodiumMg),
+    offCode: result.code,
   };
 }
 

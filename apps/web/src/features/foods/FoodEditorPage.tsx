@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/states';
 import { ApiClientError } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { useAbout } from '@/features/settings/api';
 import {
   useCategories,
   useCreateFood,
@@ -38,6 +39,8 @@ export function FoodEditorPage() {
   const navigate = useNavigate();
   const categories = useCategories();
   const food = useFood(id);
+  // "Search online" is hidden until the server confirms the lookup is enabled (FR-F5).
+  const about = useAbout();
   const createFood = useCreateFood();
   const updateFood = useUpdateFood();
   const setArchived = useSetFoodArchived();
@@ -181,6 +184,7 @@ export function FoodEditorPage() {
           formRef={captureForm}
           submitting={submitting}
           hideSaveAndAdd={returnTo !== null}
+          offEnabled={about.data?.offEnabled === true}
           secondaryActions={
             food.data ? (
               <>
