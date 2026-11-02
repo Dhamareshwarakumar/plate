@@ -55,3 +55,16 @@ every day of its window and that window's weigh-ins, replaces all goals (2,000 k
 1,900 from day 20) and leaves the data in the dev database for demos. The script also logs the URL after
 each range change, that › is disabled on the current period, that a heatmap cell opens that day in Today
 and that ArrowLeft moves the range.
+
+```sh
+node tools/shots/phase7-data.mjs          # More page order (phone full page + desktop), Data card, the three downloads, import backup sheet (empty, not a backup, preview with file-vs-server counts, REPLACE typed, restored toast), diary CSV range sheet + download, About card (loaded, skeleton, error + retry), desktop import dialog
+```
+
+`phase7-data.mjs` exports the dev database through the Data card (`page.waitForEvent('download')`,
+asserting each suggested file name: `plate-backup-<date>.json`, `plate-<date>.sqlite`,
+`plate-foods-<date>.csv`, `plate-diary-<from>_<to>.csv`), saves the backup to
+`/tmp/plate-shots/backup.json`, then **restores it over the dev database** through the sheet and checks
+that `GET /api/about` reports the same counts afterwards (a no-op round trip; ids and the session
+survive). The About error state is produced by aborting `/api/about` with `page.route`, so the two or
+three `Failed to load resource: net::ERR_FAILED` console lines are expected; any other `CONSOLE` or
+`PAGEERROR` line is a defect.
