@@ -14,6 +14,8 @@ export default tseslint.config(
       '**/coverage/**',
       'apps/api/drizzle/**',
       'apps/web/dev-dist/**',
+      // Plain browser scripts copied verbatim into dist (not part of the TS project).
+      'apps/web/public/**',
       'docker/**',
       'tools/**',
     ],
@@ -56,6 +58,7 @@ export default tseslint.config(
   },
   {
     files: ['apps/web/**/*.{ts,tsx}'],
+    ignores: ['apps/web/e2e/**'],
     languageOptions: { globals: globals.browser },
     plugins: {
       'react-hooks': reactHooks,
@@ -65,6 +68,11 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
+  },
+  {
+    // Playwright tests run in Node and talk to a browser; no React rules (their `use` is a fixture).
+    files: ['apps/web/e2e/**/*.ts'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     // Context providers export a hook next to the provider, and UI primitives export their

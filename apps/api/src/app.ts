@@ -102,12 +102,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     referrerPolicy: { policy: 'no-referrer' },
   });
 
-  await app.register(fastifyRateLimit, {
-    global: true,
-    max: options.rateLimitMax ?? 300,
-    timeWindow: '1 minute',
-  });
-
   const sessionStore = new SessionStore(db, config.sessionTtlMs);
   const authService = new AuthService(db, sessionStore);
   await app.register(authPlugin, { config, authService, sessionStore });
@@ -150,6 +144,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   await app.register(
     async (api) => {
+      // Scoped to /api: the static shell is public and a service-worker precache legitimately
+      // fetches ~80 files in one burst, which must not eat into the API budget of one device.
+      await api.register(fastifyRateLimit, {
+        global: true,
+        max: options.rateLimitMax ?? 300,
+        timeWindow: '1 minute',
+      });
       await api.register(healthRoutes, { sqlite });
       await api.register(publicAuthRoutes, { throttle: passwordThrottle });
 
