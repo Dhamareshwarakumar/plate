@@ -43,3 +43,15 @@ node tools/shots/phase5-water-weight.mjs  # Weight empty state, Today water card
 states), then seeds ~45 days of weigh-ins ending today (a gentle downward trend with four skipped
 days), the Phase 3 goal with a 74 kg goal weight, and five diary entries for today. It leaves the
 seeded weights and goal in the dev database.
+
+```sh
+node tools/seed-demo.mjs                  # ~35 days of meals, weigh-ins and water ending today, through the API (re-runnable; keeps the food library)
+node tools/shots/phase6-insights.mjs      # Insights: week, last month (full page), macros split, heatmap (month, week), weight vs intake, top foods by kcal, by meal, custom range sheet, 3M, year (weekly bars + year strip), empty range, desktop month/3M/year, tooltip
+```
+
+`phase6-insights.mjs` runs `tools/seed-demo.mjs` first (skip with `SKIP_SEED=1` when the database is already
+seeded; a full seed waits out the API rate limit and takes about two and a half minutes). The seed clears
+every day of its window and that window's weigh-ins, replaces all goals (2,000 kcal from the window start,
+1,900 from day 20) and leaves the data in the dev database for demos. The script also logs the URL after
+each range change, that › is disabled on the current period, that a heatmap cell opens that day in Today
+and that ArrowLeft moves the range.
