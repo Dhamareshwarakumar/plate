@@ -605,7 +605,7 @@ describe('config', () => {
       aiApiKey: undefined,
       aiModel: null,
       aiBaseUrl: undefined,
-      aiTimeoutMs: 30_000,
+      aiTimeoutMs: 60_000,
       aiMaxImageBytes: 4 * 1024 * 1024,
     });
   });
@@ -619,7 +619,7 @@ describe('config', () => {
       AI_TIMEOUT_MS: '',
       AI_MAX_IMAGE_BYTES: '',
     });
-    expect(config).toMatchObject({ aiProvider: 'none', aiModel: null, aiTimeoutMs: 30_000 });
+    expect(config).toMatchObject({ aiProvider: 'none', aiModel: null, aiTimeoutMs: 60_000 });
     expect(loadConfig({ AI_PROVIDER: 'fake', AI_API_KEY: '' })).toMatchObject({
       aiProvider: 'fake',
       aiModel: 'fake-1',

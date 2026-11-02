@@ -86,10 +86,15 @@ const envSchema = z.object({
       .transform((v) => v.replace(/\/+$/, ''))
       .optional(),
   ),
-  /** Per-call timeout for the provider request. */
+  /**
+   * Per-call timeout for the provider request. 60 s: the live smoke test (D212) saw the lightest
+   * Gemini model take 25–40 s for a meal parse under load, so 30 s turned paid-for answers into
+   * errors; 60 s is also nginx's default read timeout, so the server's own error still wins behind
+   * a reverse proxy with default settings.
+   */
   AI_TIMEOUT_MS: z.preprocess(
     emptyToUndefined,
-    z.coerce.number().int().min(1000).max(300_000).default(30_000),
+    z.coerce.number().int().min(1000).max(300_000).default(60_000),
   ),
   /** Largest decoded meal photo accepted by `POST ai/parse-meal`. */
   AI_MAX_IMAGE_BYTES: z.preprocess(
