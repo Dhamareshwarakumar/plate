@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { daysBetween, isValidDayKey, shiftDayKey } from './days.js';
+import { daysBetween, isValidDayKey, shiftDayKey, weekStartKey } from './days.js';
+
+describe('weekStartKey', () => {
+  it('finds the Monday or Sunday starting the week of a day', () => {
+    // 2025-10-19 is a Sunday, 2025-10-20 a Monday, 2025-10-22 a Wednesday.
+    expect(weekStartKey('2025-10-19', 'monday')).toBe('2025-10-13');
+    expect(weekStartKey('2025-10-19', 'sunday')).toBe('2025-10-19');
+    expect(weekStartKey('2025-10-20', 'monday')).toBe('2025-10-20');
+    expect(weekStartKey('2025-10-20', 'sunday')).toBe('2025-10-19');
+    expect(weekStartKey('2025-10-22', 'monday')).toBe('2025-10-20');
+    expect(weekStartKey('2025-10-22', 'sunday')).toBe('2025-10-19');
+  });
+
+  it('crosses month and year boundaries', () => {
+    // 2026-01-01 is a Thursday.
+    expect(weekStartKey('2026-01-01', 'monday')).toBe('2025-12-29');
+    expect(weekStartKey('2026-01-01', 'sunday')).toBe('2025-12-28');
+  });
+});
 
 describe('shiftDayKey', () => {
   it('moves across month and year boundaries', () => {

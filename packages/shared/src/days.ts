@@ -1,4 +1,6 @@
 import { z } from 'zod';
+// Type-only: `settings.ts` imports `localDayKey` from here, so a value import would be a cycle (D67).
+import type { WeekStart } from './settings.js';
 
 export const DAY_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -35,6 +37,16 @@ export function shiftDayKey(day: string, days: number): string {
   const m = String(date.getUTCMonth() + 1).padStart(2, '0');
   const d = String(date.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+/** The first day (Monday or Sunday per the setting) of the week containing `day`; zone-free. */
+export function weekStartKey(day: string, weekStart: WeekStart): string {
+  const date = new Date(
+    Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, Number(day.slice(8, 10))),
+  );
+  const weekday = date.getUTCDay(); // 0 = Sunday … 6 = Saturday
+  const offset = weekStart === 'sunday' ? weekday : (weekday + 6) % 7;
+  return shiftDayKey(day, -offset);
 }
 
 /** `YYYY-MM-DD` of a Date in the caller's local zone (the browser's, or the server's as a fallback). */

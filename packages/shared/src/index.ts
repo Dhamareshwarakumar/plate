@@ -5,6 +5,7 @@ export * from './diary.js';
 export * from './dishes.js';
 export * from './foods.js';
 export * from './goals.js';
+export * from './insights.js';
 export * from './mealSlots.js';
 export * from './mealTemplates.js';
 export * from './nutrition.js';
